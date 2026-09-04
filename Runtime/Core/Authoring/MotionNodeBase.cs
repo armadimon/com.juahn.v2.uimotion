@@ -34,6 +34,9 @@ namespace Juahn.UiMotion
         /// <summary>
         /// 이 노드를 시작한다. <b>절대 null을 돌려주지 않는다</b> —
         /// 파생이 null을 주면 <see cref="MotionHandle.Completed"/>로 바꾼다.
+        ///
+        /// 실행기가 넘기는 <paramref name="ctx"/>는 <b>항상 non-null</b>이다.
+        /// null을 넘기는 것은 문맥을 쓰지 않는 노드를 테스트할 때뿐이다.
         /// </summary>
         public IMotionHandle Play(IMotionContext ctx)
         {
