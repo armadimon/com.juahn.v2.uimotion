@@ -44,6 +44,24 @@ jobs:
           fi
           echo "core purity OK"
 
+      - name: Check every imported file has a .meta
+        run: |
+          # git으로 배포되는 UPM 패키지에서 .meta가 빠지면 클론할 때마다 Unity가
+          # 새 GUID를 만든다. 그러면 MotionPlayer를 붙인 프리팹의 스크립트 참조가
+          # 다른 머신에서 통째로 끊긴다. Unity가 무시하는 것(.github, ~로 끝나는 폴더)만 뺀다.
+          missing=0
+          for f in $(git ls-files | grep -v '\.meta$' | grep -v '^\.github/' | grep -v '~/'); do
+            if [ ! -e "$f.meta" ]; then echo "meta 없음: $f"; missing=1; fi
+          done
+          if [ "$missing" = "1" ]; then exit 1; fi
+          echo "meta 파일 전부 있음"
+
+      - name: Check for duplicate meta GUIDs
+        run: |
+          dups=$(git ls-files '*.meta' | xargs grep -h '^guid:' | sort | uniq -d)
+          if [ -n "$dups" ]; then echo "GUID 중복: $dups"; exit 1; fi
+          echo "GUID 중복 없음"
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
