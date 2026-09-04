@@ -1,0 +1,11 @@
+{
+  "name": "com.juahn.v2.uimotion",
+  "displayName": "UI Motion",
+  "author": "armadimon",
+  "version": "0.1.0",
+  "unity": "6000.0",
+  "license": "MIT",
+  "type": "library",
+  "description": "Graph-authored UI motion. Compose Start/Loop/End phases from nodes, save them as reusable preset assets, and play them with a single component. The core assembly has no UnityEngine dependency.",
+  "dependencies": {}
+}

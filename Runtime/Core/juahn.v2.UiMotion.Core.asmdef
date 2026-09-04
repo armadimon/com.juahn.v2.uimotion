@@ -1,0 +1,14 @@
+{
+    "name": "juahn.v2.UiMotion.Core",
+    "rootNamespace": "Juahn.UiMotion",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
