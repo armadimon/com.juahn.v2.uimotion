@@ -12,7 +12,7 @@ namespace Juahn.UiMotion.Tests
             Category = "Testing",
             Summary = "테스트용 노드다.",
             Sample = "TestNode")]
-        private sealed class DocumentedNode : MotionEffectNode
+        private class DocumentedNode : MotionEffectNode
         {
             [MotionSlot(typeof(string))]
             public SlotRef Target = SlotRef.Self;
@@ -34,12 +34,11 @@ namespace Juahn.UiMotion.Tests
             }
         }
 
-        private sealed class DerivedNode : MotionEffectNode
+        // DocumentedNode를 상속한다. 이래야 "파생이 부모의 [MotionNode]를 물려받는가"를
+        // 실제로 검증할 수 있다. MotionEffectNode를 직접 상속하면 이 테스트는
+        // Inherited 설정과 무관하게 항상 통과해 아무것도 지키지 못한다.
+        private sealed class DerivedNode : DocumentedNode
         {
-            protected override IMotionHandle OnPlay(IMotionContext ctx)
-            {
-                return MotionHandle.Completed;
-            }
         }
 
         [Test]
@@ -128,10 +127,25 @@ namespace Juahn.UiMotion.Tests
         public void MotionNodeAttribute_IsNotInherited()
         {
             // 파생 노드가 부모의 설명을 물려받으면 Node Doctor가 거짓 통과를 낸다.
-            var attr = (MotionNodeAttribute)Attribute.GetCustomAttribute(
+            // inherit 인자를 true로 줘도 null이어야 한다 - 그게 Inherited=false의 의미다.
+            var withoutInherit = (MotionNodeAttribute)Attribute.GetCustomAttribute(
                 typeof(DerivedNode), typeof(MotionNodeAttribute), false);
+            var withInherit = (MotionNodeAttribute)Attribute.GetCustomAttribute(
+                typeof(DerivedNode), typeof(MotionNodeAttribute), true);
 
-            Assert.That(attr, Is.Null);
+            Assert.That(withoutInherit, Is.Null);
+            Assert.That(withInherit, Is.Null,
+                "Inherited=false이므로 inherit=true로 조회해도 부모의 어트리뷰트가 딸려오면 안 된다");
+        }
+
+        [Test]
+        public void ParentNode_StillHasItsOwnAttribute()
+        {
+            // 위 테스트가 "어트리뷰트가 아예 없어서" 통과하는 게 아님을 보증한다.
+            var attr = (MotionNodeAttribute)Attribute.GetCustomAttribute(
+                typeof(DocumentedNode), typeof(MotionNodeAttribute), true);
+
+            Assert.That(attr, Is.Not.Null);
         }
     }
 }
