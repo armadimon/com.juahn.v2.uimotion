@@ -3538,6 +3538,7 @@ namespace Juahn.UiMotion
         private sealed class ParallelHandle : IMotionHandle
         {
             private readonly List<NodeRun> _runs;
+            private bool _started;
             private bool _done;
 
             public ParallelHandle(IMotionContext ctx, IReadOnlyList<NodeId> children)
@@ -3556,6 +3557,19 @@ namespace Juahn.UiMotion
                 if (_done)
                 {
                     return;
+                }
+
+                // 델타를 적용하기 전에 전부 시작시킨다. NodeRun은 첫 Tick 때 비로소
+                // 노드를 Play하므로, 이 단계가 없으면 첫 자식이 그 프레임의 델타를 다 써서
+                // 끝난 뒤에야 다음 자식이 시작한다 — 병렬이 아니라 순차가 된다.
+                // NodeRun이 자식을 스폰한 직후 델타 0으로 굴리는 것과 같은 패턴이다.
+                if (!_started)
+                {
+                    _started = true;
+                    for (int i = 0; i < _runs.Count; i++)
+                    {
+                        _runs[i].Tick(0f);
+                    }
                 }
 
                 bool allDone = true;
@@ -3951,6 +3965,14 @@ namespace Juahn.UiMotion
                 for (int i = 0; i < _children.Count; i++)
                 {
                     _runs.Add(new NodeRun(_ctx, _children[i]));
+                }
+
+                // 델타를 적용하기 전에 전부 시작시킨다. ParallelHandle과 같은 이유다 —
+                // NodeRun은 첫 Tick 때 비로소 Play하므로, 이 단계가 없으면 첫 자식이
+                // 프레임의 델타를 다 써서 끝난 뒤에야 다음 자식이 시작한다.
+                for (int i = 0; i < _runs.Count; i++)
+                {
+                    _runs[i].Tick(0f);
                 }
             }
         }
