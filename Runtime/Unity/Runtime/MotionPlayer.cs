@@ -334,6 +334,18 @@ namespace Juahn.UiMotion
             MotionPump.Unregister(this);
         }
 
+        /// <summary>
+        /// 읽기 전용 뷰를 버린다. <see cref="ReplaceBindings"/>가 닿지 않는 마지막 경로다 —
+        /// 되돌리기나 프리팹 되돌림으로 Unity가 이 컴포넌트를 다시 역직렬화하면
+        /// <see cref="_bindings"/>에 <b>새 배열 인스턴스</b>가 들어오는데, 뷰는 옛 인스턴스를
+        /// 붙잡고 있으므로 그대로 두면 인스펙터가 사라진 바인딩을 계속 보여 준다.
+        /// <c>MotionGraph.DropDerived</c>가 같은 이유로 있다.
+        /// </summary>
+        private void OnValidate()
+        {
+            _bindingsView = null;
+        }
+
         private void FireStartIfAutonomous()
         {
             if (_playOnEnable && !_ownedByHost)
