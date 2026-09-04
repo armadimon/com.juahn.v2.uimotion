@@ -92,6 +92,11 @@ Runtime/Unity/
 
 **"참조 0"은 여전히 유효하다.** 두 어셈블리 중 어느 것도 UiService·DOTween·UniTask를 참조하지 않는다. 목표 5는 그대로다.
 
+**코어에 뚫은 구멍 하나 — `IMotionContext.Host`.** 효과 노드가 트윈 백엔드에 닿아야 하는데
+코어는 백엔드를 모른다. 문맥이 `object Host`를 나르고 Unity 계층이 거기에 `MotionPlayer`를
+넣는다. `ISlotResolver`가 `object`를 돌려주는 것과 똑같은 관용구다 — 코어가 Unity 타입을
+알지 않기 위해 타입을 잃는 지점을 하나로 모은다.
+
 ### 3.2 `com.juahn.v2.uimotion.editor` — 관리 툴
 
 참조: `juahn.v2.UiMotion`. `includePlatforms: [Editor]`.
@@ -220,11 +225,15 @@ public sealed class MotionPlayer : MonoBehaviour
 
 | UiPresenter 생명주기 | 브릿지 동작 |
 |---|---|
-| `OnPresenterOpening()` | `Fire("Start")` |
+| `OnPresenterInitialized()` | `ClaimTriggerOwnership()` — 첫 `OnEnable`보다 먼저여야 `PlayOnEnable`과 겹치지 않는다 |
+| `OnPresenterOpened()` | `Fire("Start")` + 열기 완료원 생성. 이 시점에 오브젝트가 활성이고 펌프에 등록돼 있다 |
 | `OpenTransitionTask` | Start 스코프 완료를 나른다 → 프리젠터가 `OnOpenTransitionCompleted()`를 늦춘다 |
-| `OnPresenterOpened()` | (Start 완료 시 `Loop`가 자동 발사된다) |
-| `OnPresenterClosing()` | `Fire("End")` — `Loop`는 자동 취소 |
+| `OnPresenterClosing()` | `Fire("End")` + 닫기 완료원 생성. `Loop`는 자동 취소된다 |
 | `CloseTransitionTask` | End 스코프 완료를 나른다 → 프리젠터가 비활성/파괴를 그때까지 미룬다 |
+
+`InternalOpenProcessAsync`의 실제 순서는 `NotifyFeaturesOpening()` → `gameObject.SetActive(true)` → `OnOpened()` → `NotifyFeaturesOpened()` → `await WaitForOpenTransitionsAsync()` 다. 그래서 `OnPresenterOpening()`에서 `Fire("Start")`를 부르면 안 된다 — 그 시점에는 오브젝트가 아직 비활성이라 펌프에 등록되지 않았고, 곧이어 `SetActive(true)`가 `MotionPlayer.OnEnable`을 돌려 `PlayOnEnable`이 `Start`를 두 번째로 발사한다.
+
+> `WaitForOpenTransitionsAsync`는 이미 완료된 태스크를 건너뛴다. 그러므로 완료원은 프리젠터가 `await`하기 **전에** 만들어져야 한다. 기존 `AnimationDelayFeature`가 `OnPresenterOpened`에서 만드는 이유가 이것이다.
 
 UiService를 쓰지 않는 프로젝트는 `PlayOnEnable`로 코드 없이 돌리거나, 자체 UI 베이스에서 `Fire` / `WaitFor`를 직접 부른다.
 
@@ -324,16 +333,24 @@ TDD로 짓는다. 커버 대상:
 
 `_shared/ci.yml`에 이 테스트 스텝을 추가해 다른 패키지가 복사해 쓸 수 있게 한다.
 
-### 10.2 Unity 계층 — 컴파일 + 스모크
+### 10.2 Unity 계층 — dotnet 컴파일 게이트 + 에디터 스모크
 
-`juahn.v2.UiMotion`(MonoBehaviour · ScriptableObject · 트윈 · 효과 노드)은 Unity 없이 돌릴 수 없다. 여기는 전역 규칙(`~/.claude/rules/testing.md`)대로 **컴파일 통과 + 에디터 스모크**로 검증한다.
+`juahn.v2.UiMotion`은 UnityEngine을 참조하므로 `dotnet test`로 돌릴 수 없다. 대신
+**컴파일은 Unity 에디터 없이 검증한다** — `Tools~/compile-check/run.sh`가 설치된 Unity의
+매니지드 DLL을 참조해 `Runtime` 전체를 `dotnet build`로 컴파일한다. 1초 안에 끝나므로
+에디터를 열기 전에 오타와 타입 오류가 전부 잡힌다.
 
-각 노드의 `Sample` 그래프가 곧 스모크 케이스다. Node Doctor가 전부 재생해보는 것으로 회귀를 얕게 잡는다.
+Unity의 DLL은 재배포할 수 없어 이 게이트는 CI가 아니라 로컬이다. CI는 `package.json`
+유효성, asmdef 존재, 코어 순수성, `dotnet test`를 지킨다.
 
-Unity Test Framework 기반 EditMode/PlayMode 테스트는 이번 범위 밖이다. 시간 기반이라 불안정해지기 쉽고, 로직의 핵심은 이미 10.1이 덮는다.
+동작 검증은 각 노드의 `Sample` 그래프가 맡는다. Node Doctor가 전부 재생해보는 것으로
+회귀를 얕게 잡는다.
 
-## 11. 열린 질문 (구현 계획에서 정할 것)
+Unity Test Framework 기반 EditMode/PlayMode 테스트는 범위 밖이다. 시간 기반이라
+불안정해지기 쉽고, 로직의 핵심은 이미 10.1이 덮는다.
 
-1. 그래프 직렬화 형식 — `[SerializeReference]` 다형 배열이 유력하나, Unity의 결손 타입 처리와 머지 충돌 특성을 확인해야 한다.
-2. 내장 트윈 러너의 구동 방식 — `Update` 펌프 단일 인스턴스 vs 플레이어별 코루틴. 방치형이므로 수백 개 동시 재생을 가정해야 한다.
-3. 에디터 프리뷰가 프리팹 스테이지와 씬 인스턴스 중 무엇을 대상으로 할지, 그리고 프리뷰가 만든 변경이 프리팹에 새어 나가지 않게 하는 방법.
+## 11. 열린 질문
+
+1. ~~그래프 직렬화 형식~~ — **정해짐(계획 2).** `[SerializeReference] List<MotionNodeBase>` + 평면 간선 목록 `List<NodeLink>`. 타입이 사라진 노드는 배열의 null 원소로 남고 실행 시 건너뛰어진다. 평면 간선 목록을 고른 이유는 YAML diff가 줄 단위로 움직여 머지 충돌이 줄기 때문이다.
+2. ~~내장 트윈 러너의 구동 방식~~ — **정해짐(계획 2).** 단일 `MotionPump`. 숨겨진 MonoBehaviour 하나가 모든 플레이어를 한 `Update`에서 돌린다. 플레이어마다 `Update`를 두면 수백 개가 동시에 살아 있는 방치형에서 네이티브-매니지드 경계 비용이 그 수만큼 곱해진다.
+3. 에디터 프리뷰가 프리팹 스테이지와 씬 인스턴스 중 무엇을 대상으로 할지, 그리고 프리뷰가 만든 변경이 프리팹에 새어 나가지 않게 하는 방법 — 계획 3에서 정한다.

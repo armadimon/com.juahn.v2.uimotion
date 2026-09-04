@@ -50,3 +50,13 @@ jobs:
 
       - name: Run core tests
         run: dotnet test Tests~/dotnet/UiMotion.Core.Tests.csproj --verbosity minimal
+
+      - name: Note Unity layer verification
+        run: |
+          # Runtime/Unity는 UnityEngine 어셈블리가 필요한데 그것은 재배포할 수 없다.
+          # 그래서 컴파일 검증은 로컬 게이트다: ./Tools~/compile-check/run.sh
+          # Unity 파일을 건드리는 커밋은 그것을 통과해야 한다.
+          if [ ! -x Tools~/compile-check/run.sh ]; then
+            echo "Tools~/compile-check/run.sh가 없거나 실행 권한이 없습니다"; exit 1
+          fi
+          echo "Unity 계층 컴파일 게이트가 제자리에 있습니다 (로컬 실행)"
