@@ -102,13 +102,16 @@ namespace Juahn.UiMotion
 
                 if (!node.Id.IsValid)
                 {
-                    Warn(log, "node of type " + node.GetType().Name + " has no id and was dropped");
+                    string typeName = node.GetType().Name;
+                    Warn(log, "noid:" + typeName,
+                        "node of type " + typeName + " has no id and was dropped");
                     continue;
                 }
 
                 if (_nodes.ContainsKey(node.Id.Value))
                 {
-                    Warn(log, "duplicate node id " + node.Id + "; the first one wins");
+                    Warn(log, "dupnode:" + node.Id.Value,
+                        "duplicate node id " + node.Id + "; the first one wins");
                     continue;
                 }
 
@@ -169,7 +172,8 @@ namespace Juahn.UiMotion
 
                 if (_entries.ContainsKey(decl.Name))
                 {
-                    Warn(log, "duplicate trigger '" + decl.Name + "'; the first one wins");
+                    Warn(log, "duptrigger:" + decl.Name,
+                        "duplicate trigger '" + decl.Name + "'; the first one wins");
                     continue;
                 }
 
@@ -180,12 +184,14 @@ namespace Juahn.UiMotion
             return kept.ToArray();
         }
 
-        private static void Warn(IMotionLog log, string message)
+        /// <summary>
+        /// 억제되는 경고. <b>키가 인덱스를 다시 만들어도 같아야 한다</b> — 인덱스는 그래프를
+        /// 편집할 때마다 새로 만들어지고 로그(<c>OnceLogger</c>)는 그보다 오래 산다.
+        /// 억제되지 않으면 중복 노드 id 하나가 <c>OnValidate</c>마다 콘솔에 다시 찍힌다.
+        /// </summary>
+        private void Warn(IMotionLog log, string key, string message)
         {
-            if (log != null)
-            {
-                log.Warn(message);
-            }
+            MotionLogs.WarnOnce(log, "graph:" + GraphName + ":" + key, message);
         }
     }
 }

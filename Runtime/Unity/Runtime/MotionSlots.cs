@@ -17,9 +17,41 @@ namespace Juahn.UiMotion
         /// <summary>
         /// 해석에 실패하면 null을 돌려주고 <b>인스턴스당 한 번만</b> 경고한다.
         /// 방치형 게임에서 매 프레임 경고가 나오면 진짜 문제를 찾을 수 없다.
+        ///
+        /// <paramref name="owner"/>는 슬롯을 요구한 노드다. 억제 키와 메시지에 들어간다 —
+        /// 미배선 슬롯은 <see cref="SlotRef.Name"/>이 null이라 노드를 빼면 한 노드의 슬롯
+        /// 두 개가 같은 타입을 원할 때 키가 겹쳐 한쪽 경고가 통째로 사라진다.
         /// </summary>
-        public static T Resolve<T>(IMotionContext ctx, SlotRef slot) where T : class
+        public static T Resolve<T>(IMotionContext ctx, SlotRef slot, NodeId owner = default) where T : class
         {
+            string reason;
+            T resolved = Lookup<T>(ctx, slot, out reason);
+
+            if (reason != null)
+            {
+                WarnUnbound(ctx, slot, owner, typeof(T), reason);
+            }
+
+            return resolved;
+        }
+
+        /// <summary>
+        /// 경고 없이 해석한다. 해석 실패가 <b>노드를 건너뛰지 않는</b> 슬롯이 쓴다 —
+        /// <c>FlyAcross</c>의 '출발'처럼 실패해도 폴백해서 계속 도는 슬롯에
+        /// 공용 경고("the node was skipped")를 내면 배선이 멀쩡한데 고치러 가게 만든다.
+        /// 폴백했다는 사실을 알려야 하면 노드가 자기 문구로 경고한다.
+        /// </summary>
+        public static bool TryResolve<T>(IMotionContext ctx, SlotRef slot, out T result) where T : class
+        {
+            string reason;
+            result = Lookup<T>(ctx, slot, out reason);
+            return result != null;
+        }
+
+        private static T Lookup<T>(IMotionContext ctx, SlotRef slot, out string reason) where T : class
+        {
+            reason = null;
+
             if (ctx == null)
             {
                 return null;
@@ -28,14 +60,14 @@ namespace Juahn.UiMotion
             object raw = ctx.ResolveSlot(slot);
             if (raw == null)
             {
-                WarnUnbound(ctx, slot, typeof(T), "is not bound");
+                reason = "is not bound";
                 return null;
             }
 
             T coerced = Coerce<T>(raw);
             if (coerced == null)
             {
-                WarnUnbound(ctx, slot, typeof(T), "is bound to " + raw.GetType().Name + " which has no");
+                reason = "is bound to " + raw.GetType().Name + " which has no";
             }
 
             return coerced;
@@ -67,14 +99,15 @@ namespace Juahn.UiMotion
             return go.GetComponent(typeof(T)) as T;
         }
 
-        private static void WarnUnbound(IMotionContext ctx, SlotRef slot, System.Type wanted, string reason)
+        private static void WarnUnbound(
+            IMotionContext ctx, SlotRef slot, NodeId owner, System.Type wanted, string reason)
         {
             string graphName = ctx.Graph == null ? "<no graph>" : ctx.Graph.GraphName;
-            string key = "slot:" + graphName + ":" + slot.Name + ":" + wanted.Name;
+            string key = "slot:" + graphName + ":" + owner.Value + ":" + slot.Name + ":" + wanted.Name;
 
             MotionLogs.WarnOnce(ctx.Log, key,
-                "graph '" + graphName + "': slot '" + slot + "' " + reason + " " + wanted.Name +
-                "; the node was skipped");
+                "graph '" + graphName + "' node " + owner + ": slot '" + slot + "' " + reason + " " +
+                wanted.Name + "; the node was skipped");
         }
     }
 }

@@ -49,7 +49,16 @@ namespace Juahn.UiMotion
 
             // 캔버스가 서로 다를 수 있으므로 월드 좌표로 계산한다. anchoredPosition은
             // 부모가 다르면 비교할 수 없다.
-            RectTransform origin = From.IsValid ? Resolve<RectTransform>(ctx, From) : null;
+            //
+            // '출발'은 비워 두는 것이 정상 사용이라 비었을 때는 아무 말도 하지 않는다.
+            // 배선했는데 해석에 실패한 경우만 알리되, 그때도 노드는 건너뛰지 않고 대상의
+            // 지금 위치에서 출발하므로 공용 슬롯 경고를 쓰지 않는다 — 그 문구는
+            // "the node was skipped"라고 단정한다.
+            RectTransform origin = null;
+            if (From.IsValid && !TryResolve(ctx, From, out origin))
+            {
+                WarnFromFallback(ctx);
+            }
 
             Vector3 startPosition = target.position;
             Vector3 fromPosition = origin != null ? origin.position : startPosition;
@@ -78,6 +87,24 @@ namespace Juahn.UiMotion
 
                 target.position = straight;
             });
+        }
+
+        /// <summary>
+        /// 배선된 '출발'이 해석되지 않았을 때 한 번만 알린다. 노드는 계속 돈다 —
+        /// 대상의 지금 위치에서 출발한다.
+        /// </summary>
+        private void WarnFromFallback(IMotionContext ctx)
+        {
+            if (ctx == null)
+            {
+                return;
+            }
+
+            string graphName = ctx.Graph == null ? "<no graph>" : ctx.Graph.GraphName;
+
+            MotionLogs.WarnOnce(ctx.Log, "flyacross:" + graphName + ":" + Id.Value + ":from",
+                "graph '" + graphName + "' node " + Id + ": slot '" + From +
+                "' did not resolve to a RectTransform; the flight starts from the target's current position");
         }
     }
 }

@@ -95,6 +95,20 @@ namespace Juahn.UiMotion.Tests
         }
 
         [Test]
+        public void SameLogger_AcrossRebuilds_WarnsOnce()
+        {
+            // 그래프를 편집할 때마다 인덱스는 새로 만들어지지만 로그는 그보다 오래 산다.
+            // 억제 키가 인덱스 인스턴스에 묶여 있으면 OnValidate 한 번마다 같은 경고가 다시 찍힌다.
+            var sink = new FakeLog();
+            var log = new OnceLogger(sink);
+
+            Build(new MotionNodeBase[] { new IdNode(1), new IdNode(1) }, log: log);
+            Build(new MotionNodeBase[] { new IdNode(1), new IdNode(1) }, log: log);
+
+            Assert.That(sink.Warnings.Count, Is.EqualTo(1));
+        }
+
+        [Test]
         public void GetChildren_PreservesLinkOrder()
         {
             // 같은 부모에서 나가는 간선의 배열 순서가 곧 Sequence의 실행 순서다.

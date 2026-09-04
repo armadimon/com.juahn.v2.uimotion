@@ -18,6 +18,11 @@ namespace Juahn.UiMotion
         [MotionParam(Label = "목표 색")]
         public Color To = Color.white;
 
+        /// <summary>
+        /// 켜져 있으면 알파를 <b>매 프레임 다시 읽어</b> 보존한다. 시작할 때 한 번만 잡아 두면
+        /// 겹쳐 도는 Fade가 쓴 알파를 이 노드가 매 프레임 되돌려 페이드가 보이지 않는다.
+        /// <c>FadeNode.FadeGraphic</c>이 RGB를 매 프레임 다시 읽는 것과 같은 이유다.
+        /// </summary>
         [MotionParam(Label = "알파 유지", Tooltip = "켜면 색만 바꾸고 투명도는 건드리지 않는다. Fade와 겹쳐 쓸 때 켠다.")]
         public bool KeepAlpha = true;
 
@@ -38,25 +43,40 @@ namespace Juahn.UiMotion
 
             Color from = graphic.color;
             Color to = To;
-            if (KeepAlpha)
-            {
-                to.a = from.a;
-            }
+            bool keepAlpha = KeepAlpha;
 
             Remember(ctx, delegate
             {
-                if (graphic != null)
+                if (graphic == null)
                 {
-                    graphic.color = from;
+                    return;
                 }
+
+                Color restored = from;
+                if (keepAlpha)
+                {
+                    // 알파는 이 노드가 만진 적이 없다. 되돌리면 그 사이 Fade가 만든
+                    // 투명도를 덮어쓴다.
+                    restored.a = graphic.color.a;
+                }
+
+                graphic.color = restored;
             });
 
             return Run(ctx, Duration, Ease, delegate(float e)
             {
-                if (graphic != null)
+                if (graphic == null)
                 {
-                    graphic.color = Color.LerpUnclamped(from, to, e);
+                    return;
                 }
+
+                Color next = Color.LerpUnclamped(from, to, e);
+                if (keepAlpha)
+                {
+                    next.a = graphic.color.a;
+                }
+
+                graphic.color = next;
             });
         }
     }

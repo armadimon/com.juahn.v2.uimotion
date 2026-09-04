@@ -14,10 +14,24 @@ namespace Juahn.UiMotion
     [Serializable]
     public abstract class UnityEffectNode : MotionEffectNode
     {
-        /// <summary>슬롯을 원하는 타입으로. 실패하면 null이고 경고가 한 번 남는다.</summary>
-        protected static T Resolve<T>(IMotionContext ctx, SlotRef slot) where T : class
+        /// <summary>
+        /// 슬롯을 원하는 타입으로. 실패하면 null이고 경고가 한 번 남는다.
+        ///
+        /// <b>static이 아닌 이유</b> — 경고에 <see cref="MotionNodeBase.Id"/>를 실어야
+        /// 한 노드의 미배선 슬롯 두 개가 서로를 덮지 않는다.
+        /// </summary>
+        protected T Resolve<T>(IMotionContext ctx, SlotRef slot) where T : class
         {
-            return MotionSlots.Resolve<T>(ctx, slot);
+            return MotionSlots.Resolve<T>(ctx, slot, Id);
+        }
+
+        /// <summary>
+        /// 경고 없이 슬롯을 해석한다. 실패해도 <b>노드를 건너뛰지 않는</b> 슬롯이 쓴다 —
+        /// 공용 경고는 "the node was skipped"라고 단정하므로 폴백하는 슬롯에는 거짓말이 된다.
+        /// </summary>
+        protected static bool TryResolve<T>(IMotionContext ctx, SlotRef slot, out T result) where T : class
+        {
+            return MotionSlots.TryResolve(ctx, slot, out result);
         }
 
         /// <summary>
