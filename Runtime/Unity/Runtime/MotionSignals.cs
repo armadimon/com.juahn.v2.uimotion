@@ -19,6 +19,25 @@ namespace Juahn.UiMotion
         /// <summary>신호가 발생했다. 두 번째 인자는 신호를 낸 플레이어의 오브젝트다(없으면 null).</summary>
         public static event Action<string, GameObject> Received;
 
+        /// <summary>
+        /// 플레이 시작마다 구독을 비운다.
+        ///
+        /// <b>왜 필요한가</b> — Enter Play Mode Options로 도메인 리로드를 끄면 static 이벤트가
+        /// 플레이 세션을 넘어 살아남아 지난 세션의 파괴된 오브젝트를 붙잡는다.
+        /// <see cref="RuntimeInitializeLoadType.SubsystemRegistration"/>은 씬 로드 전이므로
+        /// 이번 세션의 정상 구독은 지우지 않는다. <see cref="MotionPump"/>가 쓰는 것과 같은 방식이다.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            Received = null;
+        }
+
+        /// <summary>
+        /// 구독자를 하나씩 부른다. <b>구독자 하나의 예외가 나머지를 막지 않는다</b> —
+        /// 멀티캐스트 델리게이트를 통째로 부르면 첫 예외에서 호출이 끊기고, 그 예외가
+        /// 그래프 실행 스택을 타고 올라가 펌프의 틱까지 멈춘다.
+        /// </summary>
         public static void Emit(string signal, GameObject source)
         {
             if (string.IsNullOrEmpty(signal))
@@ -27,9 +46,22 @@ namespace Juahn.UiMotion
             }
 
             Action<string, GameObject> handler = Received;
-            if (handler != null)
+            if (handler == null)
             {
-                handler(signal, source);
+                return;
+            }
+
+            Delegate[] subscribers = handler.GetInvocationList();
+            for (int i = 0; i < subscribers.Length; i++)
+            {
+                try
+                {
+                    ((Action<string, GameObject>)subscribers[i])(signal, source);
+                }
+                catch (Exception error)
+                {
+                    Debug.LogException(error, source);
+                }
             }
         }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -109,27 +110,69 @@ namespace Juahn.UiMotion
             // 목록 연출에서 간격이 실제로 어긋난다.
             int count = _players.Count;
 
-            // 틱 도중에 플레이어가 비활성화되거나 파괴될 수 있으므로 매번 다시 검사한다.
-            for (int i = 0; i < count; i++)
+            // try/finally인 이유 — 순회가 예외로 빠져나가면 _ticking이 true로 굳는다.
+            // 그러면 Compact()가 영영 실행되지 않아 목록이 null로 무한히 자란다.
+            // 펌프는 하나뿐이므로 그 손상은 게임 전체 UI에 남는다.
+            try
             {
-                MotionPlayer player = _players[i];
-
-                if (player == null)
+                // 틱 도중에 플레이어가 비활성화되거나 파괴될 수 있으므로 매번 다시 검사한다.
+                for (int i = 0; i < count; i++)
                 {
-                    _players[i] = null;
-                    _needsCompact = true;
-                    continue;
+                    MotionPlayer player = _players[i];
+
+                    if (player == null)
+                    {
+                        _players[i] = null;
+                        _needsCompact = true;
+                        continue;
+                    }
+
+                    try
+                    {
+                        player.TickFromPump(unscaled, scaled);
+                    }
+                    catch (Exception error)
+                    {
+                        DetachFailed(i, player, error);
+                    }
                 }
-
-                player.TickFromPump(unscaled, scaled);
             }
-
-            _ticking = false;
-
-            if (_needsCompact)
+            finally
             {
-                Compact();
+                _ticking = false;
+
+                if (_needsCompact)
+                {
+                    Compact();
+                }
             }
+        }
+
+        /// <summary>
+        /// 틱이 던진 플레이어를 펌프에서 떼어낸다.
+        ///
+        /// <b>시끄럽게 한 번 실패하고 멈추는 편이 조용히 전체를 죽이는 것보다 낫다.</b>
+        /// 예외를 그대로 흘리면 뒤 인덱스의 플레이어가 그 프레임에 전부 멈춘다.
+        /// 떼어내지 않으면 같은 예외가 매 프레임 콘솔을 채워 진짜 문제를 덮는다.
+        /// 로그에 플레이어를 문맥으로 달아 계층에서 바로 찾을 수 있게 한다.
+        /// </summary>
+        private void DetachFailed(int index, MotionPlayer player, Exception error)
+        {
+            Debug.LogException(error, player);
+
+            // 복구가 또 던질 수 있다. 그것 때문에 떼어내기를 못 하면 원래 문제로 돌아간다.
+            try
+            {
+                player.StopAll();
+            }
+            catch (Exception stopError)
+            {
+                Debug.LogException(stopError, player);
+            }
+
+            // 틱 도중이므로 목록을 줄이지 않는다. 자리를 비워 두고 Compact가 정리한다.
+            _players[index] = null;
+            _needsCompact = true;
         }
 
         private void Compact()

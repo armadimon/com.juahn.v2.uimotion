@@ -27,7 +27,7 @@ namespace Juahn.UiMotion
         private bool _playOnEnable = true;
 
         [NonSerialized] private MotionRuntime _runtime;
-        [NonSerialized] private UnityMotionLog _log;
+        [NonSerialized] private OnceLogger _log;
         [NonSerialized] private bool _ownedByHost;
 
         /// <summary>지금 재생 중인 그래프.</summary>
@@ -64,8 +64,27 @@ namespace Juahn.UiMotion
             StopAll();
         }
 
+        /// <summary>
+        /// 트리거를 발사한다. <b>비활성 플레이어에서는 아무 일도 일어나지 않는다</b> —
+        /// 아래 설명 참조.
+        /// </summary>
         public void Fire(string trigger)
         {
+            // 비활성 플레이어는 펌프에 등록되어 있지 않다(OnDisable이 해제한다).
+            // 그런데도 스코프를 만들면 아무도 굴려 주지 않는 채로 IsPlaying이 true가 되고,
+            // 뒤이은 WaitFor가 그 검사를 통과해 대기열에 들어간 뒤 영원히 풀리지 않는다.
+            // SetActive(false) 상태로 재사용되는 풀링된 팝업이 영영 닫히지 않는 경로다.
+            //
+            // 스코프를 아예 만들지 않으면 IsPlaying이 false로 남아 WaitFor가 즉시 콜백한다.
+            // 비활성 오브젝트는 애니메이션할 수 없으므로 "전이가 즉시 끝났다"가 옳은 의미다.
+            if (!isActiveAndEnabled)
+            {
+                MotionLogs.WarnOnce(EnsureLog(), "inactive-fire",
+                    "player '" + name + "' is inactive; trigger '" + trigger +
+                    "' was ignored because nothing would tick it");
+                return;
+            }
+
             MotionRuntime runtime = EnsureRuntime();
             if (runtime == null)
             {
@@ -231,12 +250,17 @@ namespace Juahn.UiMotion
 
         private void OnEnable()
         {
+            // 다시 활성화되면 경고 억제를 푼다. 지난번에 이미 경고한 문제를
+            // 이번에는 못 보고 넘어가면 안 된다.
+            if (_log != null)
+            {
+                _log.Reset();
+            }
+
             EnsureRuntime();
 
             if (_runtime != null)
             {
-                // 다시 활성화되면 경고 억제를 푼다. 지난번에 이미 경고한 문제를
-                // 이번에는 못 보고 넘어가면 안 된다.
                 _runtime.ResetDiagnostics();
             }
 
@@ -277,14 +301,23 @@ namespace Juahn.UiMotion
                 return null;
             }
 
+            var slots = new SlotTable(transform, _bindings);
+            _runtime = new MotionRuntime(_graph, slots, EnsureLog(), this);
+            return _runtime;
+        }
+
+        /// <summary>
+        /// 이 플레이어의 로그. 런타임이 있든 없든 경고를 억제하며 낼 수 있어야 하므로
+        /// 런타임보다 오래 산다 — 비활성 상태의 Fire는 런타임을 만들지 않는다.
+        /// </summary>
+        private OnceLogger EnsureLog()
+        {
             if (_log == null)
             {
-                _log = new UnityMotionLog(this);
+                _log = new OnceLogger(new UnityMotionLog(this));
             }
 
-            var slots = new SlotTable(transform, _bindings);
-            _runtime = new MotionRuntime(_graph, slots, _log, this);
-            return _runtime;
+            return _log;
         }
 
         private UnityEngine.Object FindBinding(string slotName)
