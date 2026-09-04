@@ -35,6 +35,20 @@ namespace Juahn.UiMotion
             return new TimerHandle(duration, onProgress);
         }
 
+        /// <summary>
+        /// <b>취소될 때까지 끝나지 않는</b> 핸들. 콜백은 누적 경과 시간(초)을 받는다.
+        ///
+        /// 부유나 반복 회전처럼 "켜 두면 계속 도는" 유지 연출에 쓴다. 이런 노드는
+        /// <c>Loop</c> 트리거에 물려 두고 <c>End</c>가 취소하게 한다.
+        ///
+        /// <b>주의</b> — 이 핸들을 쓰는 노드는 자식으로 이어지는 흐름을 막는다.
+        /// 뒤에 무언가를 이어 붙이고 싶으면 <see cref="FromTimer"/>를 쓴다.
+        /// </summary>
+        public static IMotionHandle Forever(Action<float> onElapsed)
+        {
+            return new ForeverHandle(onElapsed);
+        }
+
         private sealed class DoneHandle : IMotionHandle
         {
             public bool IsDone => true;
@@ -89,6 +103,43 @@ namespace Juahn.UiMotion
             public void Cancel()
             {
                 _finished = true;
+            }
+        }
+
+        private sealed class ForeverHandle : IMotionHandle
+        {
+            private readonly Action<float> _onElapsed;
+            private float _elapsed;
+            private bool _cancelled;
+
+            public ForeverHandle(Action<float> onElapsed)
+            {
+                _onElapsed = onElapsed;
+            }
+
+            public bool IsDone => _cancelled;
+
+            public void Tick(float deltaSeconds)
+            {
+                if (_cancelled)
+                {
+                    return;
+                }
+
+                if (deltaSeconds > 0f)
+                {
+                    _elapsed += deltaSeconds;
+                }
+
+                if (_onElapsed != null)
+                {
+                    _onElapsed(_elapsed);
+                }
+            }
+
+            public void Cancel()
+            {
+                _cancelled = true;
             }
         }
     }

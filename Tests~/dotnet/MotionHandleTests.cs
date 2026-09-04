@@ -124,5 +124,67 @@ namespace Juahn.UiMotion.Tests
             Assert.That(a.IsDone, Is.True);
             Assert.That(b.IsDone, Is.False);
         }
+
+        [Test]
+        public void Forever_NeverCompletesOnItsOwn()
+        {
+            IMotionHandle handle = MotionHandle.Forever(null);
+
+            for (int i = 0; i < 1000; i++)
+            {
+                handle.Tick(1f);
+            }
+
+            Assert.That(handle.IsDone, Is.False, "유지 연출은 취소될 때까지 끝나지 않는다");
+        }
+
+        [Test]
+        public void Forever_AccumulatesElapsed()
+        {
+            float last = -1f;
+            IMotionHandle handle = MotionHandle.Forever(delegate(float elapsed) { last = elapsed; });
+
+            handle.Tick(0.5f);
+            Assert.That(last, Is.EqualTo(0.5f).Within(1e-5f));
+
+            handle.Tick(0.25f);
+            Assert.That(last, Is.EqualTo(0.75f).Within(1e-5f));
+        }
+
+        [Test]
+        public void Forever_FirstTickReportsElapsedNotZero()
+        {
+            // 첫 틱에서 0을 보내면 사인파가 한 프레임 멈춘 것처럼 보인다.
+            float first = -1f;
+            IMotionHandle handle = MotionHandle.Forever(delegate(float elapsed) { first = elapsed; });
+
+            handle.Tick(0.1f);
+
+            Assert.That(first, Is.EqualTo(0.1f).Within(1e-5f));
+        }
+
+        [Test]
+        public void Forever_CancelStopsCallbacks()
+        {
+            int calls = 0;
+            IMotionHandle handle = MotionHandle.Forever(delegate { calls++; });
+
+            handle.Tick(1f);
+            handle.Cancel();
+            handle.Tick(1f);
+            handle.Tick(1f);
+
+            Assert.That(handle.IsDone, Is.True);
+            Assert.That(calls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Forever_NullCallback_IsSafe()
+        {
+            IMotionHandle handle = MotionHandle.Forever(null);
+
+            Assert.DoesNotThrow(delegate { handle.Tick(1f); });
+            Assert.DoesNotThrow(handle.Cancel);
+        }
     }
 }
