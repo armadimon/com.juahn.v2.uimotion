@@ -33,6 +33,12 @@
 
 **절대 하지 말 것** — Core 어셈블리 안에서 `using UnityEngine;`을 쓰는 것. `noEngineReferences: true`라 컴파일도 안 되지만, 우회하려고 시도하지 말 것. 대상을 실제로 만지는 코드는 전부 계획 2로 간다.
 
+**직렬화되는 타입은 public 필드를 쓴다.** Unity는 `readonly` 필드를 직렬화하지 않고, private 필드는 `[SerializeField]`가 있어야 직렬화한다. 그런데 `[SerializeField]`는 UnityEngine 타입이라 이 어셈블리에서 쓸 수 없다. 남는 방법은 **public 필드**뿐이다.
+
+그래서 그래프 에셋에 직렬화되는 값 타입(`NodeId`, `SlotRef`)은 `readonly struct`가 아니라 그냥 `struct`이고, 데이터를 public 필드로 노출한다. 캡슐화를 잃지만 대안이 없다. 이 타입들은 값으로 전달되는 작은 구조체라 실질적 위험은 낮다.
+
+반대로 **직렬화되지 않는 런타임 전용 타입**(`MotionTimer` 등)은 `readonly`와 private 필드를 그대로 써도 된다. 어느 쪽인지 헷갈리면 "이 값이 `.asset` 파일에 저장되는가"로 판단한다.
+
 **커밋 메시지** — `<타입>: <설명>` 형식. 타입은 `feat`, `fix`, `refactor`, `docs`, `test`, `chore` 중 하나. 본문은 한국어. 어트리뷰션 푸터는 붙이지 않는다.
 
 **코드 스타일** — 주석과 문서에 이모지를 쓰지 않는다. 파일 하나는 200~400줄, 최대 800줄. LINQ를 쓰지 않는다(`foreach`와 명시적 루프를 쓴다).
@@ -495,37 +501,40 @@ namespace Juahn.UiMotion
     ///
     /// 0은 "없음"으로 예약한다. 그래서 <c>default(NodeId)</c>와 직렬화되지 않은 필드가
     /// 자동으로 <see cref="None"/>이 된다.
+    ///
+    /// <b>왜 readonly struct가 아니고 필드가 public인가</b> — Unity는 <c>readonly</c> 필드를
+    /// 직렬화하지 않고, private 필드는 <c>[SerializeField]</c>가 있어야 직렬화한다.
+    /// 그런데 <c>[SerializeField]</c>는 UnityEngine 타입이라 이 어셈블리에서 쓸 수 없다.
+    /// 이 타입은 그래프 에셋에 저장되어야 하므로 그 제약이 캡슐화보다 우선한다.
     /// </summary>
     [Serializable]
-    public readonly struct NodeId : IEquatable<NodeId>
+    public struct NodeId : IEquatable<NodeId>
     {
         /// <summary>어떤 노드도 가리키지 않는 값.</summary>
         public static readonly NodeId None = default;
 
-        private readonly int _value;
+        /// <summary>원시 정수값. 직렬화 때문에 public 필드다 — 위 설명 참조.</summary>
+        public int Value;
 
         public NodeId(int value)
         {
-            _value = value;
+            Value = value;
         }
 
-        /// <summary>원시 정수값. 직렬화와 진단에만 쓴다.</summary>
-        public int Value => _value;
-
         /// <summary>실제 노드를 가리키는가.</summary>
-        public bool IsValid => _value > 0;
+        public bool IsValid => Value > 0;
 
-        public bool Equals(NodeId other) => _value == other._value;
+        public bool Equals(NodeId other) => Value == other.Value;
 
         public override bool Equals(object obj) => obj is NodeId other && Equals(other);
 
-        public override int GetHashCode() => _value;
+        public override int GetHashCode() => Value;
 
-        public override string ToString() => IsValid ? "#" + _value : "#none";
+        public override string ToString() => IsValid ? "#" + Value : "#none";
 
-        public static bool operator ==(NodeId a, NodeId b) => a._value == b._value;
+        public static bool operator ==(NodeId a, NodeId b) => a.Value == b.Value;
 
-        public static bool operator !=(NodeId a, NodeId b) => a._value != b._value;
+        public static bool operator !=(NodeId a, NodeId b) => a.Value != b.Value;
     }
 }
 ```
@@ -1414,9 +1423,12 @@ namespace Juahn.UiMotion
     /// 노드가 "무엇을 움직일지"를 가리키는 이름. 실제 오브젝트는 프리팹의 플레이어가 채운다.
     ///
     /// 이름으로 가리키는 덕분에 그래프 에셋 하나를 여러 프리팹에서 재사용할 수 있다.
+    ///
+    /// <see cref="NodeId"/>와 같은 이유로 <c>readonly struct</c>가 아니고 필드가 public이다 —
+    /// 이 타입은 노드의 필드로 그래프 에셋에 직렬화된다.
     /// </summary>
     [Serializable]
-    public readonly struct SlotRef : IEquatable<SlotRef>
+    public struct SlotRef : IEquatable<SlotRef>
     {
         /// <summary>예약 슬롯 이름. 언제나 플레이어 자신을 가리킨다.</summary>
         public const string SelfName = "Self";
@@ -1424,31 +1436,30 @@ namespace Juahn.UiMotion
         /// <summary>플레이어 자신.</summary>
         public static readonly SlotRef Self = new SlotRef(SelfName);
 
-        private readonly string _name;
+        /// <summary>슬롯 이름. 직렬화 때문에 public 필드다.</summary>
+        public string Name;
 
         public SlotRef(string name)
         {
-            _name = name;
+            Name = name;
         }
 
-        public string Name => _name;
-
         /// <summary>이름이 채워져 있는가.</summary>
-        public bool IsValid => !string.IsNullOrWhiteSpace(_name);
+        public bool IsValid => !string.IsNullOrWhiteSpace(Name);
 
         /// <summary>
         /// 예약 슬롯인가. <b>대소문자를 구분한다</b> — 슬롯 이름은 계층의 오브젝트 이름과
         /// 대조되므로, "self"라는 자식이 예약 슬롯을 덮어쓰면 안 된다.
         /// </summary>
-        public bool IsSelf => string.Equals(_name, SelfName, StringComparison.Ordinal);
+        public bool IsSelf => string.Equals(Name, SelfName, StringComparison.Ordinal);
 
-        public bool Equals(SlotRef other) => string.Equals(_name, other._name, StringComparison.Ordinal);
+        public bool Equals(SlotRef other) => string.Equals(Name, other.Name, StringComparison.Ordinal);
 
         public override bool Equals(object obj) => obj is SlotRef other && Equals(other);
 
-        public override int GetHashCode() => _name == null ? 0 : _name.GetHashCode();
+        public override int GetHashCode() => Name == null ? 0 : Name.GetHashCode();
 
-        public override string ToString() => IsValid ? _name : "<unbound>";
+        public override string ToString() => IsValid ? Name : "<unbound>";
     }
 }
 ```
