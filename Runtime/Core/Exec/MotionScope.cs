@@ -17,6 +17,7 @@ namespace Juahn.UiMotion
 
         private bool _done;
         private bool _cancelled;
+        private NodeRun _root;
 
         public MotionScope(string triggerName, IMotionLog log = null)
         {
@@ -59,6 +60,45 @@ namespace Juahn.UiMotion
             _reverts.Add(revert);
         }
 
+        /// <summary>
+        /// 진입 노드부터 실행을 시작한다. 진입이 <see cref="NodeId.None"/>이면
+        /// 할 일이 없는 것이므로 즉시 완료한다.
+        ///
+        /// 이미 시작했거나 끝난 스코프에 다시 부르면 무시한다 — 트리가 두 개 생기면
+        /// 취소가 한쪽만 끊게 된다.
+        /// </summary>
+        public void Begin(IMotionContext ctx, NodeId entry)
+        {
+            if (_done || _root != null)
+            {
+                return;
+            }
+
+            if (!entry.IsValid)
+            {
+                CompleteNaturally();
+                return;
+            }
+
+            _root = new NodeRun(ctx, entry);
+        }
+
+        /// <summary>시간을 진행시킨다. 실행 트리가 전부 끝나면 자연 완료로 표시한다.</summary>
+        public void Tick(float deltaSeconds)
+        {
+            if (_done || _root == null)
+            {
+                return;
+            }
+
+            _root.Tick(deltaSeconds);
+
+            if (_root.IsDone)
+            {
+                CompleteNaturally();
+            }
+        }
+
         /// <summary>즉시 끊고 등록된 복구를 역순으로 전부 실행한다. 두 번 불러도 한 번만 동작한다.</summary>
         public void Cancel()
         {
@@ -69,6 +109,11 @@ namespace Juahn.UiMotion
 
             _cancelled = true;
             _done = true;
+
+            if (_root != null)
+            {
+                _root.Cancel();
+            }
 
             for (int i = _reverts.Count - 1; i >= 0; i--)
             {
