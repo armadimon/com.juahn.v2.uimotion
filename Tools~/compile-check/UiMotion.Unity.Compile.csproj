@@ -26,6 +26,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      RuntimeInitializeOnLoadMethodAttribute가 PreserveAttribute를 상속하는데 그것이
+      여기 있다. Unity 안에서는 암묵적으로 참조되지만 이 하네스는 명시해야 한다.
+    -->
+    <Reference Include="Unity.Scripting">
+      <HintPath>$(UnityManaged)/Unity.Scripting.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(UnityManaged)/UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>

@@ -20,6 +20,21 @@ namespace Juahn.UiMotion
         private static MotionPump _instance;
         private static bool _quitting;
 
+        /// <summary>
+        /// 플레이 시작마다 static 상태를 되돌린다.
+        ///
+        /// <b>왜 필요한가</b> — Enter Play Mode Options로 도메인 리로드를 끄면 static이
+        /// 플레이 세션을 넘어 살아남는다. 지난 세션에서 <see cref="_quitting"/>이 true가 된 채
+        /// 남으면 펌프가 다시 만들어지지 않아 <b>모든 연출이 조용히 멈춘다</b>. 두 번째로
+        /// 플레이를 누른 순간부터 아무것도 움직이지 않는데 오류는 하나도 나오지 않는다.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            _instance = null;
+            _quitting = false;
+        }
+
         private readonly List<MotionPlayer> _players = new List<MotionPlayer>();
         private bool _ticking;
         private bool _needsCompact;
@@ -87,8 +102,15 @@ namespace Juahn.UiMotion
 
             _ticking = true;
 
+            // 순회 길이를 먼저 굳힌다. 연출 노드가 다른 오브젝트를 켜면 그 플레이어의
+            // OnEnable이 이 루프 도중에 Register를 부르는데, 길이를 매번 다시 읽으면
+            // 새 플레이어가 등록된 바로 그 프레임에 델타를 한 번 먹는다. OnEnable에서
+            // 이미 Start가 발사됐으므로 그만큼 한 프레임 앞서 가고, 순차로 튀어나오는
+            // 목록 연출에서 간격이 실제로 어긋난다.
+            int count = _players.Count;
+
             // 틱 도중에 플레이어가 비활성화되거나 파괴될 수 있으므로 매번 다시 검사한다.
-            for (int i = 0; i < _players.Count; i++)
+            for (int i = 0; i < count; i++)
             {
                 MotionPlayer player = _players[i];
 

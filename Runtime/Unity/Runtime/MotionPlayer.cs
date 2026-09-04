@@ -181,6 +181,10 @@ namespace Juahn.UiMotion
             }
 
             _bindings = next.ToArray();
+
+            // 돌던 것을 먼저 걷어낸다. 런타임을 그냥 버리면 스코프의 원상 복구가
+            // 실행되지 못해 트윈이 어중간한 값에서 굳는다.
+            StopAll();
             _runtime = null;
         }
 
@@ -197,6 +201,7 @@ namespace Juahn.UiMotion
                 if (_bindings[i].Name == slotName)
                 {
                     _bindings[i].Target = target;
+                    StopAll();
                     _runtime = null;
                     return;
                 }
@@ -206,6 +211,7 @@ namespace Juahn.UiMotion
             Array.Copy(_bindings, grown, _bindings.Length);
             grown[_bindings.Length] = new SlotBinding(slotName, target);
             _bindings = grown;
+            StopAll();
             _runtime = null;
         }
 
