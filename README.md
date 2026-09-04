@@ -153,10 +153,26 @@ public sealed class TiltNode : UnityEffectNode
         }
 
         Vector3 from = target.localEulerAngles;
-        Remember(ctx, () => target.localEulerAngles = from);
+
+        // 람다 안의 null 검사는 선택이 아니다. 연출이 도는 중에 대상이 파괴될 수 있고
+        // (팝업이 닫히거나 리스트 항목이 재활용되면 흔한 일이다), 그러면 되돌림과
+        // 매 틱의 트윈이 MissingReferenceException을 던진다. 배포된 13개 노드가
+        // 전부 이 검사를 넣는다.
+        Remember(ctx, () =>
+        {
+            if (target != null)
+            {
+                target.localEulerAngles = from;
+            }
+        });
 
         return Run(ctx, Duration, Ease, t =>
-            target.localEulerAngles = from + new Vector3(0f, 0f, Angle * t));
+        {
+            if (target != null)
+            {
+                target.localEulerAngles = from + new Vector3(0f, 0f, Angle * t);
+            }
+        });
     }
 }
 ```

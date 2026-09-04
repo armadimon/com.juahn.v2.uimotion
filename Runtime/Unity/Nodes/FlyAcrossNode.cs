@@ -65,11 +65,17 @@ namespace Juahn.UiMotion
             Vector3 toPosition = destination.position;
             float arc = Arc;
 
+            // 복구는 로컬값으로 한다. 비행 중에 부모가 움직이면(스크롤 리스트) 저장해 둔
+            // 월드 좌표는 더 이상 원래 자리가 아니다. 나머지 트랜스폼 노드도 전부 로컬값을
+            // 되돌린다. 트윈이 월드 position을 쓰는 것은 출발지와 도착지의 캔버스가 다를 수
+            // 있어서이고, 그것과는 별개다.
+            Vector3 restoreLocalPosition = target.localPosition;
+
             Remember(ctx, delegate
             {
                 if (target != null)
                 {
-                    target.position = startPosition;
+                    target.localPosition = restoreLocalPosition;
                 }
             });
 

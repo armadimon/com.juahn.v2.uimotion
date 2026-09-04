@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using UnityEngine;
 
 namespace Juahn.UiMotion
@@ -30,10 +31,35 @@ namespace Juahn.UiMotion
         [NonSerialized] private OnceLogger _log;
         [NonSerialized] private bool _ownedByHost;
 
+        // 읽기 전용 뷰. 원본 배열을 들여다보는 창이므로 한 번만 만든다.
+        [NonSerialized] private ReadOnlyCollection<SlotBinding> _bindingsView;
+
         /// <summary>지금 재생 중인 그래프.</summary>
         public MotionGraph Graph => _graph;
 
-        public IReadOnlyList<SlotBinding> Bindings => _bindings;
+        /// <summary>
+        /// 슬롯 바인딩들. <b>읽기 전용 뷰다</b> — 배열을 그대로 내보내면 호출자가
+        /// <c>(SlotBinding[])player.Bindings</c>로 되캐스팅해 고칠 수 있고, 그러면
+        /// <see cref="StopAll"/>과 런타임 무효화를 우회해 낡은 <c>SlotTable</c>이
+        /// 조용히 살아남는다. <c>MotionGraph.Nodes</c>와 같은 이유다.
+        ///
+        /// <b>함정</b> — <c>MotionGraph</c>가 감싸는 <c>List</c>와 달리 여기서는
+        /// <see cref="_bindings"/>가 <b>배열 인스턴스째 교체된다</b>(<see cref="SyncBindings"/>,
+        /// <see cref="Bind"/>의 확장 경로). 뷰는 옛 인스턴스를 붙잡으므로 배열을 바꾸는
+        /// 자리는 반드시 <see cref="ReplaceBindings"/>를 거쳐야 한다.
+        /// </summary>
+        public IReadOnlyList<SlotBinding> Bindings
+        {
+            get
+            {
+                if (_bindingsView == null)
+                {
+                    _bindingsView = new ReadOnlyCollection<SlotBinding>(_bindings);
+                }
+
+                return _bindingsView;
+            }
+        }
 
         /// <summary>
         /// 트윈 백엔드. 비워 두면 <see cref="BuiltinTweenRunner"/>를 쓴다.
@@ -199,7 +225,7 @@ namespace Juahn.UiMotion
                 next.Add(orphan);
             }
 
-            _bindings = next.ToArray();
+            ReplaceBindings(next.ToArray());
 
             // 돌던 것을 먼저 걷어낸다. 런타임을 그냥 버리면 스코프의 원상 복구가
             // 실행되지 못해 트윈이 어중간한 값에서 굳는다.
@@ -229,7 +255,34 @@ namespace Juahn.UiMotion
             var grown = new SlotBinding[_bindings.Length + 1];
             Array.Copy(_bindings, grown, _bindings.Length);
             grown[_bindings.Length] = new SlotBinding(slotName, target);
-            _bindings = grown;
+            ReplaceBindings(grown);
+            StopAll();
+            _runtime = null;
+        }
+
+        /// <summary>
+        /// 바인딩 배열을 통째로 갈아 끼운다. <b><see cref="_bindings"/>에 직접 대입하지 않는다</b> —
+        /// <see cref="Bindings"/>의 읽기 전용 뷰가 옛 배열 인스턴스를 계속 보여 준다.
+        /// </summary>
+        private void ReplaceBindings(SlotBinding[] next)
+        {
+            _bindings = next;
+            _bindingsView = null;
+        }
+
+        /// <summary>
+        /// 런타임을 버려 다음 <see cref="Fire"/>에서 다시 만들어지게 한다.
+        /// <b>그래프를 편집한 뒤 에디터가 부른다.</b>
+        ///
+        /// <see cref="MotionRuntime"/>은 만들 때 트리거 러너와 진입 노드를 스냅샷하므로,
+        /// 그래프의 <c>Invalidate()</c>는 그래프의 캐시만 버릴 뿐 이미 만들어진 플레이어의
+        /// 런타임에는 닿지 않는다. 그래프 편집이 이 패키지의 주 워크플로라
+        /// 플레이 중에 편집하면 화면이 낡은 그래프를 계속 재생한다.
+        /// </summary>
+        public void Rebuild()
+        {
+            // 돌던 것을 먼저 걷어낸다. 런타임을 그냥 버리면 스코프의 원상 복구가
+            // 실행되지 못해 트윈이 어중간한 값에서 굳는다.
             StopAll();
             _runtime = null;
         }

@@ -177,14 +177,20 @@ namespace Juahn.UiMotion.Tests
         public void RepeatedCalls_AreStable()
         {
             // 타입별 리플렉션 결과를 캐시하므로 두 번째 호출이 첫 번째와 달라지면 안 된다.
+            //
+            // 2회차를 1회차와만 비교하면 구현이 일관되게 틀려도 통과한다(상속 순회를
+            // 뒤집어도 두 호출은 똑같이 틀린 결과를 낸다). 두 호출 모두 기대하는
+            // 실제 내용을 직접 단언한다.
             List<SlotDeclaration> first = Collect(new DerivedWithSlot());
             List<SlotDeclaration> second = Collect(new DerivedWithSlot());
 
-            Assert.That(second.Count, Is.EqualTo(first.Count));
-            for (int i = 0; i < first.Count; i++)
+            foreach (List<SlotDeclaration> slots in new[] { first, second })
             {
-                Assert.That(second[i].Name, Is.EqualTo(first[i].Name));
-                Assert.That(second[i].RequiredType, Is.EqualTo(first[i].RequiredType));
+                Assert.That(slots.Count, Is.EqualTo(2));
+                Assert.That(slots[0].Name, Is.EqualTo("FromBase"));
+                Assert.That(slots[0].RequiredType, Is.EqualTo(typeof(string)));
+                Assert.That(slots[1].Name, Is.EqualTo("FromDerived"));
+                Assert.That(slots[1].RequiredType, Is.EqualTo(typeof(int)));
             }
         }
 
