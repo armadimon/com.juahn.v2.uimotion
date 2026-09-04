@@ -1,0 +1,50 @@
+name: package-validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate package.json is valid JSON
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
+          echo "package.json is valid JSON"
+
+      - name: Check required package fields
+        run: |
+          node -e "
+          const p = JSON.parse(require('fs').readFileSync('package.json','utf8'));
+          for (const k of ['name','version','unity','license']) {
+            if (!p[k]) { console.error('missing field: ' + k); process.exit(1); }
+          }
+          if (!p.name.startsWith('com.juahn.v2.')) { console.error('name must start with com.juahn.v2.'); process.exit(1); }
+          console.log('package fields OK: ' + p.name + '@' + p.version);
+          "
+
+      - name: Check assembly definition present
+        run: |
+          if ! ls Runtime/**/*.asmdef >/dev/null 2>&1; then
+            echo "no Runtime asmdef found"; exit 1
+          fi
+          echo "asmdef present"
+
+      - name: Guard core assembly purity
+        run: |
+          if grep -rn "using UnityEngine" Runtime/Core/ ; then
+            echo "Runtime/Core must not reference UnityEngine"; exit 1
+          fi
+          echo "core purity OK"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run core tests
+        run: dotnet test Tests~/dotnet/UiMotion.Core.Tests.csproj --verbosity minimal
