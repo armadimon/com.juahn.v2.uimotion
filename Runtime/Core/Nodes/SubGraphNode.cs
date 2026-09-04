@@ -60,7 +60,7 @@ namespace Juahn.UiMotion
 
             innerScope.Begin(
                 new MotionContext(inner, innerScope, new ContextSlotResolver(ctx), ctx.Log, ctx.Triggers,
-                    ctx.Depth + 1),
+                    ctx.Depth + 1, ctx.Host),
                 entry);
 
             return new SubGraphHandle(innerScope);

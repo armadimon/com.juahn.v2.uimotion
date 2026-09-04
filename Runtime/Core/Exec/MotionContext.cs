@@ -21,6 +21,12 @@ namespace Juahn.UiMotion
 
         public MotionContext(IMotionGraphView graph, MotionScope scope, ISlotResolver resolver, IMotionLog log,
             ITriggerSink triggers, int depth)
+            : this(graph, scope, resolver, log, triggers, depth, null)
+        {
+        }
+
+        public MotionContext(IMotionGraphView graph, MotionScope scope, ISlotResolver resolver, IMotionLog log,
+            ITriggerSink triggers, int depth, object host)
         {
             Graph = graph;
             Scope = scope;
@@ -28,6 +34,7 @@ namespace Juahn.UiMotion
             Log = log;
             Triggers = triggers;
             Depth = depth;
+            Host = host;
         }
 
         public IMotionGraphView Graph { get; }
@@ -39,6 +46,8 @@ namespace Juahn.UiMotion
         public ITriggerSink Triggers { get; }
 
         public int Depth { get; }
+
+        public object Host { get; }
 
         public object ResolveSlot(SlotRef slot)
         {

@@ -19,12 +19,22 @@ namespace Juahn.UiMotion
         private readonly Dictionary<string, TriggerRunner> _runners = new Dictionary<string, TriggerRunner>();
         private readonly List<TriggerRunner> _order = new List<TriggerRunner>();
         private readonly Dictionary<string, List<Action>> _waiters = new Dictionary<string, List<Action>>();
+        private readonly object _host;
 
         public MotionRuntime(IMotionGraphView graph, ISlotResolver resolver, IMotionLog log)
+            : this(graph, resolver, log, null)
+        {
+        }
+
+        /// <param name="host">
+        /// 효과 노드가 캐스트해서 쓰는 호스트. Unity 계층은 여기에 <c>MotionPlayer</c>를 넣는다.
+        /// </param>
+        public MotionRuntime(IMotionGraphView graph, ISlotResolver resolver, IMotionLog log, object host)
         {
             _graph = graph;
             _resolver = resolver;
             _log = new OnceLogger(log);
+            _host = host;
 
             BuildRunners();
         }
@@ -152,7 +162,7 @@ namespace Juahn.UiMotion
         private MotionScope CreateScope(string triggerName, NodeId entry)
         {
             var scope = new MotionScope(triggerName, _log);
-            scope.Begin(new MotionContext(_graph, scope, _resolver, _log, this), entry);
+            scope.Begin(new MotionContext(_graph, scope, _resolver, _log, this, 0, _host), entry);
             return scope;
         }
 
