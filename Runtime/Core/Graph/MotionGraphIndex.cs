@@ -13,16 +13,26 @@ namespace Juahn.UiMotion
     /// <b>읽기 전용이다.</b> 만들 때 한 번 계산하고 그 뒤로는 바뀌지 않는다. 그래프가 실행
     /// 상태를 갖지 않는다는 불변식이 여기에 걸려 있다 — 같은 에셋을 수백 개 오브젝트가
     /// 동시에 쓰기 때문이다. 저작 쪽이 배열을 바꾸면 인덱스를 <b>새로 만든다</b>.
+    ///
+    /// 그 불변식을 말로만 두지 않기 위해 조회 결과는 전부 배열로 굳혀서 내보낸다.
+    /// <c>List</c>를 <c>IReadOnlyList</c>로 캐스팅해 돌려주면 호출자가 되캐스팅해 고칠 수 있다.
+    ///
+    /// <b>슬롯 목록은 노드 인덱스와 다른 집합을 본다.</b> 슬롯은 저작된 모든 노드에서
+    /// 계산하고, 노드 인덱스는 id가 중복되거나 없는 노드를 버린다. 슬롯은 "이 그래프가
+    /// 무엇을 요구하는가"의 선언이므로, 실행되지 못하는 노드 때문에 사람이 채워 둔
+    /// 바인딩이 사라지면 안 되기 때문이다.
     /// </summary>
     public sealed class MotionGraphIndex : IMotionGraphView
     {
         private static readonly NodeId[] NoChildren = new NodeId[0];
+        private static readonly TriggerDeclaration[] NoTriggers = new TriggerDeclaration[0];
 
         private readonly Dictionary<int, MotionNodeBase> _nodes = new Dictionary<int, MotionNodeBase>();
-        private readonly Dictionary<int, List<NodeId>> _children = new Dictionary<int, List<NodeId>>();
+        private readonly Dictionary<int, NodeId[]> _children = new Dictionary<int, NodeId[]>();
         private readonly Dictionary<string, NodeId> _entries = new Dictionary<string, NodeId>(StringComparer.Ordinal);
-        private readonly List<TriggerDeclaration> _triggers = new List<TriggerDeclaration>();
-        private readonly List<SlotDeclaration> _slots = new List<SlotDeclaration>();
+
+        private readonly TriggerDeclaration[] _triggers;
+        private readonly SlotDeclaration[] _slots;
 
         public MotionGraphIndex(
             string graphName,
@@ -35,9 +45,11 @@ namespace Juahn.UiMotion
 
             IndexNodes(nodes, log);
             IndexLinks(links);
-            IndexTriggers(triggers, log);
+            _triggers = IndexTriggers(triggers, log);
 
-            SlotIntrospector.Collect(nodes, _slots);
+            var slots = new List<SlotDeclaration>();
+            SlotIntrospector.Collect(nodes, slots);
+            _slots = slots.ToArray();
         }
 
         public string GraphName { get; }
@@ -65,8 +77,8 @@ namespace Juahn.UiMotion
 
         public IReadOnlyList<NodeId> GetChildren(NodeId parent)
         {
-            List<NodeId> list;
-            return _children.TryGetValue(parent.Value, out list) ? (IReadOnlyList<NodeId>)list : NoChildren;
+            NodeId[] children;
+            return _children.TryGetValue(parent.Value, out children) ? children : NoChildren;
         }
 
         private void IndexNodes(IReadOnlyList<MotionNodeBase> nodes, IMotionLog log)
@@ -111,6 +123,8 @@ namespace Juahn.UiMotion
                 return;
             }
 
+            var building = new Dictionary<int, List<NodeId>>();
+
             for (int i = 0; i < links.Count; i++)
             {
                 NodeLink link = links[i];
@@ -120,22 +134,30 @@ namespace Juahn.UiMotion
                 }
 
                 List<NodeId> list;
-                if (!_children.TryGetValue(link.From.Value, out list))
+                if (!building.TryGetValue(link.From.Value, out list))
                 {
                     list = new List<NodeId>();
-                    _children[link.From.Value] = list;
+                    building[link.From.Value] = list;
                 }
 
                 list.Add(link.To);
             }
+
+            // 배열로 굳힌다. 조회 결과를 호출자가 고칠 수 있으면 안 되기 때문이다.
+            foreach (KeyValuePair<int, List<NodeId>> pair in building)
+            {
+                _children[pair.Key] = pair.Value.ToArray();
+            }
         }
 
-        private void IndexTriggers(IReadOnlyList<TriggerDeclaration> triggers, IMotionLog log)
+        private TriggerDeclaration[] IndexTriggers(IReadOnlyList<TriggerDeclaration> triggers, IMotionLog log)
         {
             if (triggers == null)
             {
-                return;
+                return NoTriggers;
             }
+
+            var kept = new List<TriggerDeclaration>();
 
             for (int i = 0; i < triggers.Count; i++)
             {
@@ -152,8 +174,10 @@ namespace Juahn.UiMotion
                 }
 
                 _entries[decl.Name] = decl.Entry;
-                _triggers.Add(decl);
+                kept.Add(decl);
             }
+
+            return kept.ToArray();
         }
 
         private static void Warn(IMotionLog log, string message)

@@ -1674,6 +1674,13 @@ namespace Juahn.UiMotion
         /// </summary>
         [NonSerialized] private MotionGraphIndex _index;
 
+        /// <summary>
+        /// 인덱스가 쓰는 로그. <b>인덱스보다 오래 산다</b> — 인덱스는 편집할 때마다
+        /// 다시 만들어지는데, 로그까지 새로 만들면 "중복 노드 id" 같은 경고가 편집 한 번마다
+        /// 콘솔에 다시 찍힌다.
+        /// </summary>
+        [NonSerialized] private OnceLogger _log;
+
         /// <summary>이 그래프를 <see cref="Time.unscaledDeltaTime"/>으로 돌릴지.</summary>
         public bool UseUnscaledTime => _useUnscaledTime;
 
@@ -1703,7 +1710,12 @@ namespace Juahn.UiMotion
             {
                 if (_index == null)
                 {
-                    _index = new MotionGraphIndex(name, _nodes, _links, _triggers, new UnityMotionLog(this));
+                    if (_log == null)
+                    {
+                        _log = new OnceLogger(new UnityMotionLog(this));
+                    }
+
+                    _index = new MotionGraphIndex(name, _nodes, _links, _triggers, _log);
                 }
 
                 return _index;
@@ -1724,6 +1736,12 @@ namespace Juahn.UiMotion
 }
 ```
 
+**인덱스 무효화 경로가 왜 셋인가** — 그래프는 세 가지 경로로 바뀐다. 저작 API(Task 5 Step 2)는
+`Invalidate()`를 직접 부른다. 에디터 창이 `SerializedObject.ApplyModifiedProperties()`로 바꾸면
+Unity가 `OnValidate`를 부른다. 도메인 리로드와 에셋 재로드는 `OnEnable`을 부른다. 셋 중 하나라도
+빠지면 **조용히 낡은 인덱스가 산다** — 노드를 지웠는데 계속 재생되는 종류의 버그가 되고,
+그때는 원인이 인덱스라는 것을 짐작하기 어렵다.
+
 - [ ] **Step 2: 저작 API를 만든다**
 
 에디터 패키지는 별도 어셈블리라서 그래프를 바꾸려면 public API가 필요하다.
@@ -1743,7 +1761,8 @@ namespace Juahn.UiMotion
     /// 별도 어셈블리인 에디터 패키지가 써야 하므로 public이고, <c>#if UNITY_EDITOR</c>로
     /// 감싸지 않는다.
     ///
-    /// 모든 변경은 파생 인덱스를 무효화한다.
+    /// <b>규칙: 이 클래스에 메서드를 추가하면 마지막 줄이 <c>Invalidate()</c>여야 한다.</b>
+    /// 강제하는 장치가 없으므로 사람이 지켜야 한다. 빠뜨리면 낡은 인덱스가 조용히 살아남는다.
     /// </summary>
     public sealed partial class MotionGraph
     {

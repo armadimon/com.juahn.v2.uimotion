@@ -212,6 +212,51 @@ namespace Juahn.UiMotion.Tests
             Assert.That(slots[0].RequiredType, Is.EqualTo(typeof(string)));
         }
 
+        // --- 조회 결과가 굳어 있는지 --------------------------------------------
+        // "그래프는 실행 상태를 갖지 않는다"는 불변식은 반환값을 호출자가 고칠 수 있으면
+        // 무너진다. List를 IReadOnlyList로 캐스팅해 돌려주는 실수를 여기서 막는다.
+
+        [Test]
+        public void GetChildren_ResultIsNotAMutableList()
+        {
+            var nodes = new MotionNodeBase[] { new IdNode(1), new IdNode(2) };
+            var links = new[] { new NodeLink(new NodeId(1), new NodeId(2)) };
+
+            IReadOnlyList<NodeId> children = Build(nodes, links).GetChildren(new NodeId(1));
+
+            Assert.That(children, Is.Not.InstanceOf<List<NodeId>>(),
+                "되캐스팅해 고칠 수 있는 목록을 돌려주면 안 된다");
+        }
+
+        [Test]
+        public void Triggers_ResultIsNotAMutableList()
+        {
+            var triggers = new[] { new TriggerDeclaration("Start", new NodeId(1)) };
+
+            Assert.That(Build(triggers: triggers).Triggers, Is.Not.InstanceOf<List<TriggerDeclaration>>());
+        }
+
+        [Test]
+        public void Slots_ResultIsNotAMutableList()
+        {
+            var nodes = new MotionNodeBase[] { new IdNode(1, "Icon") };
+
+            Assert.That(Build(nodes).Slots, Is.Not.InstanceOf<List<SlotDeclaration>>());
+        }
+
+        [Test]
+        public void DuplicateIdNode_StillContributesItsSlot()
+        {
+            // 슬롯 목록과 노드 인덱스는 일부러 다른 집합을 본다. 실행되지 못하는 노드
+            // 때문에 사람이 인스펙터에 채워 둔 바인딩이 사라지면 안 되기 때문이다.
+            var nodes = new MotionNodeBase[] { new IdNode(1, "Icon"), new IdNode(1, "Label") };
+
+            MotionGraphIndex index = Build(nodes, log: new FakeLog());
+
+            Assert.That(index.GetNode(new NodeId(1)), Is.SameAs(nodes[0]), "노드는 첫 번째만 산다");
+            Assert.That(index.Slots.Count, Is.EqualTo(2), "슬롯은 둘 다 선언된다");
+        }
+
         [Test]
         public void Index_DrivesMotionRuntime()
         {
