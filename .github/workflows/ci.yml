@@ -39,7 +39,7 @@ jobs:
 
       - name: Guard core assembly purity
         run: |
-          if grep -rn "using UnityEngine" Runtime/Core/ ; then
+          if grep -rnE "using UnityEngine|UnityEngine\\." Runtime/Core/ ; then
             echo "Runtime/Core must not reference UnityEngine"; exit 1
           fi
           echo "core purity OK"
