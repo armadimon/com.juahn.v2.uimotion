@@ -30,7 +30,9 @@ jobs:
 
       - name: Check assembly definition present
         run: |
-          if ! ls Runtime/**/*.asmdef >/dev/null 2>&1; then
+          # find를 쓴다. bash의 ** 는 globstar 없이는 재귀 전개가 되지 않아,
+          # asmdef가 더 깊은 폴더로 옮겨가면 조용히 못 찾는다.
+          if ! find Runtime -name '*.asmdef' | grep -q . ; then
             echo "no Runtime asmdef found"; exit 1
           fi
           echo "asmdef present"
