@@ -64,12 +64,13 @@ Runtime/Core/
   Graph/     NodeId · NodeLink · TriggerDeclaration · SlotDeclaration
              IMotionGraphView (실행기가 보는 그래프의 유일한 창구)
   Authoring/ MotionNodeAttribute · MotionSlotAttribute · MotionParamAttribute
-             SlotRef · IMotionHandle · MotionHandle
-             MotionNodeBase · MotionFlowNode · MotionEffectNode · IMotionContext
+             MotionNodeBase · MotionFlowNode · MotionEffectNode
+             IMotionContext · ISlotResolver
   Nodes/     TriggerNode · SequenceNode · ParallelNode · DelayNode
-             RepeatNode · StopTriggerNode · SubGraphNode
-  Exec/      MotionRuntime · MotionScope · TriggerPolicy · TriggerQueue
-             GraphCycleDetector · MotionTimer
+             RepeatNode · StopTriggerNode · SubGraphNode(추상)
+  Exec/      MotionRuntime · MotionScope · IMotionScope · MotionContext
+             NodeRun · TriggerRunner · ITriggerSink
+             GraphCycleDetector · MotionTimer · IMotionHandle · MotionHandle
   Easing/    EaseKind · EaseLibrary
   Diag/      IMotionLog · OnceLogger
 ```
@@ -178,7 +179,11 @@ public sealed class MotionPlayer : MonoBehaviour
 
 ### 4.5 원상 복구 (Revert)
 
-효과 노드는 시작할 때 대상의 원래 값을 `ctx.Scope.Remember(target, value)`로 등록한다. 스코프가 중단되거나 완료되면 `Reverts == true`인 노드의 등록분을 되돌린다.
+효과 노드는 시작할 때 대상의 원래 값을 `ctx.Scope.Remember(...)`로 등록한다. 스코프가 **취소될 때** 등록분을 **역순으로** 되돌린다.
+
+**자연 완료 시에는 되돌리지 않는다.** 페이드인이 끝나자마자 다시 투명해지면 안 되기 때문이다. 되돌림은 "중간에 끊겼다"의 처리이지 "끝났다"의 처리가 아니다. 완료 시점에 원래 값으로 돌아와야 하는 연출(펀치·흔들림)은 그 자체가 왕복이므로 애초에 제자리에서 끝난다.
+
+노드의 `Reverts` 속성은 엔진이 읽지 않는다 — 되돌릴지는 노드가 `Remember`를 부르는지로 정해진다. 이 속성은 에디터와 Node Doctor가 "이 노드는 중단되면 원상 복구합니다"를 표시하는 용도다.
 
 방치형 게임에서 앱은 몇 시간씩 켜져 있다. 꺼지지 않은 트윈 하나가 계속 돌고, 부유 연출이 만든 중간 위치를 다음 재생이 기준으로 삼으면 오브젝트가 갈수록 밀린다. IdlePaori의 `UIFloatingModule`은 이 문제를 `_origin` 캡처와 `OnStop`의 복원으로 손수 해결하고 있다. 그 처리를 프레임워크가 모든 노드에 대해 보장하도록 승격한다.
 
