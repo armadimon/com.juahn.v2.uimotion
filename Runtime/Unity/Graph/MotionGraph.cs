@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using UnityEngine;
 
 namespace Juahn.UiMotion
@@ -58,12 +59,46 @@ namespace Juahn.UiMotion
         /// </summary>
         [NonSerialized] private OnceLogger _log;
 
+        // 읽기 전용 뷰. 원본 목록을 들여다보는 창이므로 한 번만 만든다.
+        [NonSerialized] private ReadOnlyCollection<MotionNodeBase> _nodesView;
+        [NonSerialized] private ReadOnlyCollection<NodeLink> _linksView;
+
         /// <summary>이 그래프를 <see cref="Time.unscaledDeltaTime"/>으로 돌릴지.</summary>
         public bool UseUnscaledTime => _useUnscaledTime;
 
-        public IReadOnlyList<MotionNodeBase> Nodes => _nodes;
+        /// <summary>
+        /// 노드들. <b>읽기 전용 뷰다</b> — 살아 있는 <c>List</c>를 그대로 내보내면 호출자가
+        /// 되캐스팅해 고칠 수 있고, 그러면 <see cref="Invalidate"/>를 우회해 낡은 인덱스가
+        /// 조용히 살아남는다. 바꾸려면 <see cref="AddNode"/> 같은 저작 API를 쓴다.
+        ///
+        /// 뷰는 원본을 들여다보는 창이라 한 번 만들어 재사용해도 목록 변경이 그대로 비친다.
+        /// </summary>
+        public IReadOnlyList<MotionNodeBase> Nodes
+        {
+            get
+            {
+                if (_nodesView == null)
+                {
+                    _nodesView = new ReadOnlyCollection<MotionNodeBase>(_nodes);
+                }
 
-        public IReadOnlyList<NodeLink> Links => _links;
+                return _nodesView;
+            }
+        }
+
+        /// <summary>간선들. <see cref="Nodes"/>와 같은 이유로 읽기 전용 뷰다.</summary>
+        public IReadOnlyList<NodeLink> Links
+        {
+            get
+            {
+                if (_linksView == null)
+                {
+                    _linksView = new ReadOnlyCollection<NodeLink>(_links);
+                }
+
+                return _linksView;
+            }
+        }
 
         public string GraphName => name;
 
@@ -102,12 +137,27 @@ namespace Juahn.UiMotion
         private void OnEnable()
         {
             // 도메인 리로드 후 파생값을 다시 계산하게 한다.
-            _index = null;
+            DropDerived();
         }
 
         private void OnValidate()
         {
+            DropDerived();
+        }
+
+        /// <summary>
+        /// 파생값을 전부 버린다.
+        ///
+        /// 읽기 전용 뷰까지 버리는 이유 — Unity가 이 에셋을 다시 역직렬화하면(되돌리기,
+        /// 에셋 재로드) <c>_nodes</c>에 <b>새 List 인스턴스</b>가 들어온다. 뷰는 옛 인스턴스를
+        /// 붙잡고 있으므로 그대로 두면 사라진 노드를 계속 보여 준다.
+        /// <c>[NonSerialized]</c> 필드는 같은 도메인 안의 역직렬화로는 초기화되지 않는다.
+        /// </summary>
+        private void DropDerived()
+        {
             _index = null;
+            _nodesView = null;
+            _linksView = null;
         }
     }
 }

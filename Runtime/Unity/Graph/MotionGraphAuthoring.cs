@@ -161,7 +161,7 @@ namespace Juahn.UiMotion
         /// <summary>파생 인덱스를 버린다. 다음 조회에서 다시 계산된다.</summary>
         public void Invalidate()
         {
-            _index = null;
+            DropDerived();
         }
     }
 }
