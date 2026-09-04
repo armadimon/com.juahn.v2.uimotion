@@ -13,6 +13,9 @@ namespace Juahn.UiMotion
 
         IMotionLog Log { get; }
 
+        /// <summary>다른 트리거를 건드리는 통로. 실행기 밖에서 만든 문맥에서는 null일 수 있다.</summary>
+        ITriggerSink Triggers { get; }
+
         /// <summary>슬롯을 실제 대상으로. 바인딩되지 않았으면 null.</summary>
         object ResolveSlot(SlotRef slot);
     }

@@ -9,11 +9,18 @@ namespace Juahn.UiMotion
         private readonly ISlotResolver _resolver;
 
         public MotionContext(IMotionGraphView graph, MotionScope scope, ISlotResolver resolver, IMotionLog log)
+            : this(graph, scope, resolver, log, null)
+        {
+        }
+
+        public MotionContext(IMotionGraphView graph, MotionScope scope, ISlotResolver resolver, IMotionLog log,
+            ITriggerSink triggers)
         {
             Graph = graph;
             Scope = scope;
             _resolver = resolver;
             Log = log;
+            Triggers = triggers;
         }
 
         public IMotionGraphView Graph { get; }
@@ -21,6 +28,8 @@ namespace Juahn.UiMotion
         public IMotionScope Scope { get; }
 
         public IMotionLog Log { get; }
+
+        public ITriggerSink Triggers { get; }
 
         public object ResolveSlot(SlotRef slot)
         {
