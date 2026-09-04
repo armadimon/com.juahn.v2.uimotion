@@ -45,29 +45,51 @@ IdlePaori는 UI 연출을 MonoBehaviour "모듈"로 조립한다. 세 계열이 
 | 7 | 프리셋 계층 | **그래프 에셋 + 서브그래프** | 재사용 관용구를 한 곳에서 고칠 수 있어야 복붙 그래프가 쌓이지 않는다 |
 | 8 | 모듈 계약 강제 | **중간** — 미검증 격리 + 빌드/CI 게이트 | 실험은 막지 않되 배포된 것은 100% 문서화됨을 보장 |
 | 9 | IdlePaori | **참조 원본만** | 범위가 명확하고 운영 중인 게임에 리스크가 0 |
+| 10 | 검증 | **순수 C# 어셈블리 분리 + `dotnet test` CI 게이트**, Unity 계층은 컴파일 + 스모크 | 사람이 기억해서 로컬에서 돌려야 하는 테스트는 썩는다. 버그가 가장 많이 날 곳이 마침 순수 로직이다 |
 
 ## 3. 패키지 구성
 
 각 패키지는 v2 관례대로 **독립 git 저장소**다 (`com.juahn.v2.di` 등과 동일).
 
-### 3.1 `com.juahn.v2.uimotion` — 코어
+### 3.1 `com.juahn.v2.uimotion` — 코어 (어셈블리 2개)
 
-**asmdef 참조: 없음.** UnityEngine 외 어떤 것도 참조하지 않는다. 이것이 목표 5의 유일한 보증이다.
+패키지는 하나지만 어셈블리를 둘로 나눈다. **경계 기준은 UnityEngine 의존 여부**다.
+
+이 분리의 목적은 두 가지다. 첫째, 버그가 가장 많이 날 부분(취소·원상복구·스코프 생명주기·순환 검출)을 UnityEngine 없이 짜서 `dotnet test`로 **CI에서 무료로** 검증할 수 있게 한다. 둘째, 같은 규약을 이미 `noEngineReferences: true`인 `com.juahn.v2.architecture` · `com.juahn.v2.sim`에 그대로 확산시킬 수 있다.
+
+**`juahn.v2.UiMotion.Core`** — `noEngineReferences: true`. 참조 없음. 순수 C#.
 
 ```
-Runtime/
-  Graph/        MotionGraph(SO) · MotionNode · NodePort · NodeId · SlotDeclaration
-  Nodes/Flow/   TriggerNode · SequenceNode · ParallelNode · DelayNode
-                RepeatNode · SubGraphNode · StopTriggerNode
-  Nodes/Effects/ MoveNode · ScaleNode · RotateNode · FadeNode · ColorNode
-                PunchScaleNode · ShakeNode · FloatNode · BounceNode
-                FlyAcrossNode · SetActiveNode · PlayAnimatorNode · SendSignalNode
-  Runtime/      MotionPlayer(MonoBehaviour) · MotionRuntime · MotionScope
-                MotionContext · SlotTable · TriggerPolicy
-  Tween/        IMotionTweenRunner · BuiltinTweenRunner · EaseKind · EaseLibrary
-  Authoring/    MotionNodeAttribute · MotionSlotAttribute · SlotRef
-                MotionEffectNode · MotionFlowNode · IMotionHandle
+Runtime/Core/
+  Graph/     NodeId · NodeLink · TriggerDeclaration · SlotDeclaration
+             IMotionGraphView (실행기가 보는 그래프의 유일한 창구)
+  Authoring/ MotionNodeAttribute · MotionSlotAttribute · MotionParamAttribute
+             SlotRef · IMotionHandle · MotionHandle
+             MotionNodeBase · MotionFlowNode · MotionEffectNode · IMotionContext
+  Nodes/     TriggerNode · SequenceNode · ParallelNode · DelayNode
+             RepeatNode · StopTriggerNode · SubGraphNode
+  Exec/      MotionRuntime · MotionScope · TriggerPolicy · TriggerQueue
+             GraphCycleDetector · MotionTimer
+  Easing/    EaseKind · EaseLibrary
+  Diag/      IMotionLog · OnceLogger
 ```
+
+**`juahn.v2.UiMotion`** — UnityEngine 의존. 참조: `juahn.v2.UiMotion.Core`.
+
+```
+Runtime/Unity/
+  Graph/     MotionGraph(ScriptableObject, IMotionGraphView 구현)
+  Runtime/   MotionPlayer(MonoBehaviour) · SlotBinding · SlotTable
+             UnityMotionContext · UnityMotionLog
+  Tween/     IMotionTweenRunner · BuiltinTweenRunner · MotionPump
+  Nodes/     MoveNode · ScaleNode · RotateNode · FadeNode · ColorNode
+             PunchScaleNode · ShakeNode · FloatNode · BounceNode
+             FlyAcrossNode · SetActiveNode · PlayAnimatorNode · SendSignalNode
+```
+
+**노드 클래스가 순수 쪽에 있어도 되는 이유** — Unity 직렬화에 필요한 `System.SerializableAttribute`와 public 필드는 순수 C#이다. UnityEngine이 필요한 것은 `[SerializeField]`·`[Tooltip]`·`[Range]` 같은 인스펙터 어트리뷰트뿐인데, 어차피 그래프 창이 자체 인스펙터를 그리므로 `[MotionParam]`으로 대체한다. 대상을 실제로 만지는 효과 노드만 Unity 쪽에 둔다.
+
+**"참조 0"은 여전히 유효하다.** 두 어셈블리 중 어느 것도 UiService·DOTween·UniTask를 참조하지 않는다. 목표 5는 그대로다.
 
 ### 3.2 `com.juahn.v2.uimotion.editor` — 관리 툴
 
@@ -274,11 +296,30 @@ IdlePaori의 기존 25개 모듈을 훑어 뽑았다.
 
 ## 10. 검증
 
-테스트 인프라가 아직 확정되지 않았으므로(`~/.claude/rules/testing.md`) 이번 단계에서 TDD를 강제하지 않는다.
+이 패키지가 **v2 라인에 테스트 규약을 처음 세운다.** 현재 v2에는 테스트가 하나도 없고 `_shared/ci.yml`은 `package.json` 유효성과 asmdef 존재만 검사한다. 여기서 만드는 규약을 다른 v2 패키지가 차츰 따라 쓴다.
 
-- 컴파일 통과 + Unity 에디터 스모크로 검증한다.
-- 각 노드의 `Sample` 그래프가 곧 스모크 케이스다 — Node Doctor가 전부 재생해보는 것으로 회귀를 얕게 잡는다.
-- 순수 로직(그래프 순회, 스코프 취소, 슬롯 해석, 순환 검출)은 UnityEngine 의존이 없으므로, 테스트 하네스가 생기면 **가장 먼저 다룰 대상**이다.
+### 10.1 순수 코어 — `dotnet test`, CI 게이트
+
+`juahn.v2.UiMotion.Core`는 UnityEngine을 참조하지 않으므로 Unity 없이 컴파일하고 테스트할 수 있다. `Tests~/dotnet/`에 NUnit 프로젝트를 두고 코어 소스를 링크해 GitHub Actions에서 돌린다. Unity 라이선스가 필요 없으므로 **무료로, 모든 푸시마다** 돈다.
+
+TDD로 짓는다. 커버 대상:
+
+- 흐름 노드의 실행 순서 (`Sequence` · `Parallel` · `Delay` · `Repeat`)
+- 스코프 생명주기 — 취소 시 원상 복구가 **등록의 역순으로** 전부 실행되는가
+- 트리거 재발사 정책 (`Restart` · `Ignore` · `Queue`)
+- 서브그래프 순환 검출
+- 이징 함수의 경계값 (`t=0` → 0, `t=1` → 1)
+- 경고 1회 정책이 실제로 한 번만 로그하는가
+
+`_shared/ci.yml`에 이 테스트 스텝을 추가해 다른 패키지가 복사해 쓸 수 있게 한다.
+
+### 10.2 Unity 계층 — 컴파일 + 스모크
+
+`juahn.v2.UiMotion`(MonoBehaviour · ScriptableObject · 트윈 · 효과 노드)은 Unity 없이 돌릴 수 없다. 여기는 전역 규칙(`~/.claude/rules/testing.md`)대로 **컴파일 통과 + 에디터 스모크**로 검증한다.
+
+각 노드의 `Sample` 그래프가 곧 스모크 케이스다. Node Doctor가 전부 재생해보는 것으로 회귀를 얕게 잡는다.
+
+Unity Test Framework 기반 EditMode/PlayMode 테스트는 이번 범위 밖이다. 시간 기반이라 불안정해지기 쉽고, 로직의 핵심은 이미 10.1이 덮는다.
 
 ## 11. 열린 질문 (구현 계획에서 정할 것)
 
