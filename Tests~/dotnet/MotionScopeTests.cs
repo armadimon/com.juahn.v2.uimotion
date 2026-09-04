@@ -143,5 +143,69 @@ namespace Juahn.UiMotion.Tests
 
             Assert.That(calls, Is.EqualTo(1));
         }
+
+        [Test]
+        public void Remember_AfterNaturalCompletion_IsDropped()
+        {
+            // 자연 완료 후 늦게 도착한 등록은 실행하지 않는다 - 자연 완료는 되돌리지 않으므로.
+            // 그렇다고 리스트에 쌓아 두면 캡처된 참조까지 영원히 남는다.
+            int calls = 0;
+            var scope = new MotionScope("T");
+            scope.CompleteNaturally();
+
+            scope.Remember(delegate { calls++; });
+
+            Assert.That(calls, Is.EqualTo(0), "자연 완료는 되돌리지 않는다");
+            Assert.That(scope.IsDone, Is.True);
+            Assert.That(scope.IsCancelled, Is.False);
+        }
+
+        [Test]
+        public void Cancel_AfterNaturalCompletion_DoesNotRunLateReverts()
+        {
+            int calls = 0;
+            var scope = new MotionScope("T");
+            scope.CompleteNaturally();
+            scope.Remember(delegate { calls++; });
+
+            scope.Cancel();
+
+            Assert.That(calls, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Cancel_RevertThatCancelsAgain_DoesNotLoopOrDoubleRun()
+        {
+            // 복구가 다른 UI를 건드리다 같은 스코프를 다시 취소시키는 경로가 실제로 있을 수 있다.
+            // 이 정합성은 "_done을 복구 루프 전에 세팅한다"는 구현 디테일에 의존하므로 고정한다.
+            int calls = 0;
+            MotionScope scope = null;
+            scope = new MotionScope("T");
+            scope.Remember(delegate
+            {
+                calls++;
+                scope.Cancel();
+            });
+
+            Assert.DoesNotThrow(delegate { scope.Cancel(); });
+            Assert.That(calls, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Cancel_RevertThatRemembersAgain_RunsTheNewOneImmediately()
+        {
+            var order = new List<string>();
+            MotionScope scope = null;
+            scope = new MotionScope("T");
+            scope.Remember(delegate
+            {
+                order.Add("outer");
+                scope.Remember(delegate { order.Add("inner"); });
+            });
+
+            Assert.DoesNotThrow(delegate { scope.Cancel(); });
+            Assert.That(order, Is.EqualTo(new[] { "outer", "inner" }),
+                "취소된 스코프에 늦게 등록되면 그 자리에서 실행된다");
+        }
     }
 }

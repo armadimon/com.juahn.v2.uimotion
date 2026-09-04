@@ -217,5 +217,25 @@ namespace Juahn.UiMotion.Tests
             scope.Tick(1f);
             Assert.That(scope.IsDone, Is.True);
         }
+
+        [Test]
+        public void Sequence_DropsLeftoverTime_WhenChildFinishesEarly()
+        {
+            // 알려진 한계를 명시적으로 못 박는다. RepeatNode와 같은 판단이다.
+            // 첫 자식만 그 프레임의 델타를 받고, 이어 시작되는 자식은 0에서 시작한다.
+            var graph = new FakeGraph();
+            var log = new ExecutionLog();
+            NodeId seq = graph.Add(new SequenceNode());
+            graph.Link(seq, graph.Add(new RecordingEffect("a", 0.1f) { Log = log }));
+            graph.Link(seq, graph.Add(new RecordingEffect("b", 0.1f) { Log = log }));
+            graph.Link(seq, graph.Add(new RecordingEffect("c", 0.1f) { Log = log }));
+
+            MotionScope scope = Begin(graph, seq);
+            scope.Tick(1f);
+
+            Assert.That(log.Entries, Is.EqualTo(new[] { "a:start", "a:end", "b:start" }),
+                "1초를 줘도 0.1초짜리 자식 하나만 끝난다 - 남은 0.9초는 버려진다");
+            Assert.That(scope.IsDone, Is.False);
+        }
     }
 }

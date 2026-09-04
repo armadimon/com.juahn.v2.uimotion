@@ -12,9 +12,20 @@ namespace Juahn.UiMotion
     /// </summary>
     public sealed class NodeRun
     {
+        /// <summary>
+        /// 노드 사슬의 최대 중첩 깊이. 이 구조는 재귀라서 아주 깊은 사슬이
+        /// 스택 오버플로로 프로세스를 통째로 죽인다 — <c>catch</c>로 잡히지도 않는다.
+        ///
+        /// 정상적인 UI 연출 그래프는 10~20 단계면 충분하다. 이 상한에 걸린다는 것은
+        /// 그래프가 잘못됐다는 뜻이므로, 에러를 남기고 그 가지를 잘라낸다.
+        /// </summary>
+        public const int MaxDepth = 256;
+
         private readonly IMotionContext _ctx;
         private readonly NodeId _id;
+        private readonly int _depth;
 
+        private MotionNodeBase _node;
         private IMotionHandle _self;
         private List<NodeRun> _children;
         private bool _started;
@@ -22,9 +33,15 @@ namespace Juahn.UiMotion
         private bool _cancelled;
 
         public NodeRun(IMotionContext ctx, NodeId id)
+            : this(ctx, id, 0)
+        {
+        }
+
+        private NodeRun(IMotionContext ctx, NodeId id, int depth)
         {
             _ctx = ctx;
             _id = id;
+            _depth = depth;
         }
 
         public bool IsDone { get; private set; }
@@ -97,16 +114,28 @@ namespace Juahn.UiMotion
         {
             _started = true;
 
-            MotionNodeBase node = _ctx.Graph.GetNode(_id);
+            if (_depth >= MaxDepth)
+            {
+                if (_ctx.Log != null)
+                {
+                    _ctx.Log.Error("node chain exceeded depth " + MaxDepth +
+                        " at node " + _id + "; the branch was cut off. the graph is likely malformed.");
+                }
+
+                _self = MotionHandle.Completed;
+                return;
+            }
+
+            _node = _ctx.Graph.GetNode(_id);
 
             // 결손 노드 — 타입이 사라졌거나 id가 어긋났다. 건너뛰고 나머지를 살린다.
-            if (node == null)
+            if (_node == null)
             {
                 _self = MotionHandle.Completed;
                 return;
             }
 
-            _self = node.Play(_ctx);
+            _self = _node.Play(_ctx);
         }
 
         private void SpawnChildren()
@@ -116,10 +145,8 @@ namespace Juahn.UiMotion
                 return;
             }
 
-            MotionNodeBase node = _ctx.Graph.GetNode(_id);
-
             // 자식을 직접 조율하는 노드는 실행기가 건드리지 않는다.
-            if (node != null && node.OwnsChildren)
+            if (_node != null && _node.OwnsChildren)
             {
                 return;
             }
@@ -134,7 +161,7 @@ namespace Juahn.UiMotion
             _children = new List<NodeRun>(childIds.Count);
             for (int i = 0; i < childIds.Count; i++)
             {
-                _children.Add(new NodeRun(_ctx, childIds[i]));
+                _children.Add(new NodeRun(_ctx, childIds[i], _depth + 1));
             }
         }
 

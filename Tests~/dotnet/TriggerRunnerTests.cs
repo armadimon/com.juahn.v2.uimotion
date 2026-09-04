@@ -213,5 +213,76 @@ namespace Juahn.UiMotion.Tests
             Assert.That(runner.IsPlaying, Is.False, "이미 끝난 스코프를 붙들고 있으면 안 된다");
             Assert.That(raised, Is.EqualTo(1));
         }
+
+        // --- 재진입 -----------------------------------------------------------
+        // Tick 도중 노드가 같은 트리거를 건드리는 경우. StopTriggerNode가 자기 트리거를
+        // 대상으로 삼으면 실제로 이 경로를 탄다 - 저작 실수로 충분히 나온다.
+
+        [Test]
+        public void Tick_ReentrantStop_DoesNotThrow()
+        {
+            var graph = new FakeGraph();
+            NodeId selfStop = graph.Add(new StopTriggerNode { TriggerName = "A" });
+            graph.DeclareTrigger("A", selfStop, TriggerPolicy.Restart);
+
+            var runtime = new MotionRuntime(graph, new FakeSlotResolver(), new FakeLog());
+            runtime.Fire("A");
+
+            Assert.DoesNotThrow(delegate { runtime.Tick(1f); });
+            Assert.That(runtime.IsPlaying("A"), Is.False);
+        }
+
+        [Test]
+        public void Tick_ReentrantRestart_DoesNotThrow()
+        {
+            // 자기 자신을 다시 발사하는 배선. Restart 정책이라 현재 스코프가 끊기고 새로 시작된다.
+            var graph = new FakeGraph();
+            NodeId selfFire = graph.Add(new FireTriggerProbe { TriggerName = "A" });
+            graph.DeclareTrigger("A", selfFire, TriggerPolicy.Restart);
+
+            var runtime = new MotionRuntime(graph, new FakeSlotResolver(), new FakeLog());
+            runtime.Fire("A");
+
+            Assert.DoesNotThrow(delegate { runtime.Tick(1f); });
+        }
+
+        [Test]
+        public void Tick_ReentrantStopOnDifferentTrigger_StillCompletesNormally()
+        {
+            // 다른 트리거를 멈추는 정상 용례는 영향을 받지 않아야 한다.
+            var log = new ExecutionLog();
+            var graph = new FakeGraph();
+
+            NodeId loopEntry = graph.Add(new RecordingEffect("loop", 5f) { Log = log });
+            graph.DeclareTrigger("Loop", loopEntry);
+
+            NodeId killEntry = graph.Add(new StopTriggerNode { TriggerName = "Loop" });
+            graph.DeclareTrigger("Kill", killEntry);
+
+            var runtime = new MotionRuntime(graph, new FakeSlotResolver(), new FakeLog());
+            runtime.Fire("Loop");
+            runtime.Tick(0.1f);
+            runtime.Fire("Kill");
+            runtime.Tick(0f);
+
+            Assert.That(runtime.IsPlaying("Loop"), Is.False);
+            Assert.That(runtime.IsPlaying("Kill"), Is.False, "Kill은 즉시 끝난다");
+        }
+
+        /// <summary>재진입 테스트용. OnPlay에서 지정한 트리거를 발사한다.</summary>
+        private sealed class FireTriggerProbe : MotionFlowNode
+        {
+            public string TriggerName;
+
+            protected override IMotionHandle OnPlay(IMotionContext ctx)
+            {
+                if (ctx != null && ctx.Triggers != null && !string.IsNullOrEmpty(TriggerName))
+                {
+                    ctx.Triggers.Fire(TriggerName);
+                }
+
+                return MotionHandle.Completed;
+            }
+        }
     }
 }

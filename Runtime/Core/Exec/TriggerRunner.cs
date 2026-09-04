@@ -69,19 +69,30 @@ namespace Juahn.UiMotion
 
         public void Tick(float deltaSeconds)
         {
-            if (_current == null)
+            // 필드가 아니라 지역 변수로 잡는다. _current.Tick 안에서 노드가
+            // 같은 트리거에 Stop()이나 Fire()를 부르면 필드가 바뀌기 때문이다
+            // (자기 자신을 멈추는 StopTriggerNode 등). NodeRun이 지연 시작이라
+            // 그 OnPlay가 바로 이 호출 스택 안에서 실행된다.
+            MotionScope current = _current;
+            if (current == null)
             {
                 return;
             }
 
-            _current.Tick(deltaSeconds);
+            current.Tick(deltaSeconds);
 
-            if (!_current.IsDone)
+            // 재진입한 Stop()/Fire()가 이미 정리를 끝냈다면 여기서 손대지 않는다.
+            if (!ReferenceEquals(_current, current))
             {
                 return;
             }
 
-            bool wasCancelled = _current.IsCancelled;
+            if (!current.IsDone)
+            {
+                return;
+            }
+
+            bool wasCancelled = current.IsCancelled;
             _current = null;
 
             if (!wasCancelled)

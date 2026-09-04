@@ -51,9 +51,17 @@ namespace Juahn.UiMotion
                 return;
             }
 
-            if (_cancelled)
+            if (_done)
             {
-                RunRevert(revert);
+                // 취소된 스코프에 늦게 도착한 등록은 그 자리에서 되돌린다 —
+                // 안 그러면 아무도 되돌리지 않아 값이 남는다.
+                // 자연 완료된 스코프는 애초에 되돌리지 않으므로 그냥 버린다.
+                // 쌓아 두면 캡처된 참조까지 영원히 남는다.
+                if (_cancelled)
+                {
+                    RunRevert(revert);
+                }
+
                 return;
             }
 

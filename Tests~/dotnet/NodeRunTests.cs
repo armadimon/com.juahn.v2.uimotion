@@ -212,6 +212,55 @@ namespace Juahn.UiMotion.Tests
             Assert.That(ctx.ResolveSlot(SlotRef.Self), Is.Null);
         }
 
+        [Test]
+        public void VeryDeepChain_IsCutOff_InsteadOfCrashing()
+        {
+            // 재귀 구조라 아주 깊은 사슬은 스택 오버플로로 프로세스를 통째로 죽인다.
+            // catch로 잡히지 않으므로 깊이 상한으로 막는다.
+            var graph = new FakeGraph();
+            var sink = new FakeLog();
+
+            NodeId first = graph.Add(new RecordingEffect("n0"));
+            NodeId previous = first;
+            for (int i = 1; i < NodeRun.MaxDepth + 50; i++)
+            {
+                NodeId next = graph.Add(new RecordingEffect("n" + i));
+                graph.Link(previous, next);
+                previous = next;
+            }
+
+            var scope = new MotionScope("T");
+            var run = new NodeRun(new MotionContext(graph, scope, new FakeSlotResolver(), sink), first);
+
+            Assert.DoesNotThrow(delegate { run.Tick(0f); });
+            Assert.That(sink.Errors.Count, Is.GreaterThanOrEqualTo(1), "잘려나간 사실을 알려야 한다");
+        }
+
+        [Test]
+        public void ChainWithinDepthLimit_RunsFully()
+        {
+            var graph = new FakeGraph();
+            var log = new ExecutionLog();
+            var sink = new FakeLog();
+
+            NodeId first = graph.Add(new RecordingEffect("n0") { Log = log });
+            NodeId previous = first;
+            for (int i = 1; i < 20; i++)
+            {
+                NodeId next = graph.Add(new RecordingEffect("n" + i) { Log = log });
+                graph.Link(previous, next);
+                previous = next;
+            }
+
+            var scope = new MotionScope("T");
+            var run = new NodeRun(new MotionContext(graph, scope, new FakeSlotResolver(), sink), first);
+            run.Tick(0f);
+
+            Assert.That(run.IsDone, Is.True);
+            Assert.That(log.Entries.Count, Is.EqualTo(40), "20개 노드가 각각 start/end를 찍는다");
+            Assert.That(sink.Errors.Count, Is.EqualTo(0), "상한 안에서는 경고가 없어야 한다");
+        }
+
         private sealed class OwningNoop : MotionFlowNode
         {
             public override bool OwnsChildren => true;
