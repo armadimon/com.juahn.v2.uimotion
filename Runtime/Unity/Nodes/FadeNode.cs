@@ -75,9 +75,12 @@ namespace Juahn.UiMotion
         private void WarnNoFadeTarget(IMotionContext ctx, Component target)
         {
             string graphName = ctx.Graph == null ? "<no graph>" : ctx.Graph.GraphName;
-            MotionLogs.WarnOnce(ctx.Log, "fade:" + graphName + ":" + Target.Name,
-                "graph '" + graphName + "': slot '" + Target + "' resolved to '" + target.name +
-                "' which has neither CanvasGroup nor Graphic; the node was skipped");
+
+            // 키에 노드 id를 넣는 이유는 MotionSlots와 같다 — 한 그래프의 Fade 두 개가
+            // 둘 다 Self를 가리키면 이름만으로는 키가 겹쳐 한쪽 경고가 사라진다.
+            MotionLogs.WarnOnce(ctx.Log, "fade:" + graphName + ":" + Id.Value + ":" + Target.Name,
+                "graph '" + graphName + "' node " + Id + ": slot '" + Target + "' resolved to '" +
+                target.name + "' which has neither CanvasGroup nor Graphic; the node was skipped");
         }
 
         private IMotionHandle FadeGroup(IMotionContext ctx, CanvasGroup group)
