@@ -49,10 +49,22 @@ namespace Juahn.UiMotion
                     return;
 
                 default:
-                    _current.Cancel();
+                {
+                    // Tick과 같은 이유로 필드가 아니라 지역 변수로 잡는다 — 아래 참조.
+                    MotionScope restarting = _current;
+                    restarting.Cancel();
+
+                    if (!ReferenceEquals(_current, restarting))
+                    {
+                        // 취소가 돌린 복구가 이미 이 트리거를 다시 발사했다.
+                        // 그것이 곧 재시작이므로 여기서 또 시작하면 두 번 돈다.
+                        return;
+                    }
+
                     _current = null;
                     StartNew();
                     return;
+                }
             }
         }
 
@@ -60,9 +72,26 @@ namespace Juahn.UiMotion
         {
             _queued = false;
 
-            if (_current != null)
+            // Tick과 같은 이유로 필드가 아니라 지역 변수로 잡는다.
+            //
+            // Cancel은 등록된 원상 복구를 이 호출 스택 안에서 전부 돌리는데, 그 복구가
+            // 같은 트리거를 다시 발사할 수 있다. 실제 경로가 있다 — 자기 자신을 끄는
+            // SetActive 노드가 취소되면 복구가 오브젝트를 다시 켜고, Unity가 그 자리에서
+            // 동기적으로 OnEnable을 불러 Start가 재발사된다.
+            //
+            // 그때 아래에서 _current를 무조건 null로 만들면 방금 만들어진 스코프가
+            // 취소도 되지 않은 채 사라진다. 오브젝트는 아무 연출 없이 굳고, 오류는
+            // 하나도 나오지 않는다.
+            MotionScope current = _current;
+            if (current == null)
             {
-                _current.Cancel();
+                return;
+            }
+
+            current.Cancel();
+
+            if (ReferenceEquals(_current, current))
+            {
                 _current = null;
             }
         }

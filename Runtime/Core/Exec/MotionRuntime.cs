@@ -72,9 +72,20 @@ namespace Juahn.UiMotion
             }
         }
 
+        /// <summary>
+        /// 모든 트리거를 멈춘다.
+        ///
+        /// <b>선언의 역순으로 멈춘다.</b> 두 트리거가 같은 대상을 만지면 되돌리는 순서가
+        /// 결과를 정하기 때문이다 — <c>Start</c>가 원래 위치 O를 기억한 채 도는 중에
+        /// <c>Loop</c>가 시작하면 <c>Loop</c>는 그 시점의 중간 위치 X를 기억한다.
+        /// 선언 순서대로 되돌리면 O를 복원한 뒤 X로 덮어써 오브젝트가 엉뚱한 자리에 남는다.
+        ///
+        /// 나중에 선언된 것이 대개 나중에 시작하므로, 역순이 스코프 안의
+        /// "등록의 역순" 규칙과 결이 맞는다.
+        /// </summary>
         public void StopAll()
         {
-            for (int i = 0; i < _order.Count; i++)
+            for (int i = _order.Count - 1; i >= 0; i--)
             {
                 _order[i].Stop();
                 ReleaseWaiters(_order[i].Name);
