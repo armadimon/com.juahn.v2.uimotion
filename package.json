@@ -7,5 +7,7 @@
   "license": "MIT",
   "type": "library",
   "description": "Graph-authored UI motion. Compose Start/Loop/End phases from nodes, save them as reusable preset assets, and play them with a single component. The core assembly has no UnityEngine dependency.",
-  "dependencies": {}
+  "dependencies": {
+    "com.unity.ugui": "2.0.0"
+  }
 }

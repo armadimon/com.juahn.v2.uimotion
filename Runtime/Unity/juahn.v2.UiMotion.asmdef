@@ -1,8 +1,9 @@
 {
     "name": "juahn.v2.UiMotion",
-    "rootNamespace": "Juahn.UiMotion.Unity",
+    "rootNamespace": "Juahn.UiMotion",
     "references": [
-        "juahn.v2.UiMotion.Core"
+        "juahn.v2.UiMotion.Core",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

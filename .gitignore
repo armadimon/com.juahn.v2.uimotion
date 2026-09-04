@@ -30,3 +30,6 @@ node_modules/
 
 # 테스트 프로젝트는 dotnet test에 필요하므로 커밋한다.
 !Tests~/dotnet/*.csproj
+
+# 컴파일 게이트 프로젝트도 커밋한다.
+!Tools~/compile-check/*.csproj
