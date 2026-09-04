@@ -97,5 +97,46 @@ namespace Juahn.UiMotion.Tests
             float value = EaseLibrary.Evaluate((EaseKind)9999, 0.25f);
             Assert.That(value, Is.EqualTo(0.25f).Within(1e-5f));
         }
+
+        // --- 회귀 고정 -------------------------------------------------------
+        // 위 불변식 테스트는 경계와 대소 관계만 본다. 곡선 중간이 완전히 틀려도 통과한다.
+        // 아래 값들은 easings.net 표준 정의에서 독립적으로 계산한 것으로,
+        // 지금의 (검증된) 곡선 모양을 고정해 앞으로의 변경이 조용히 곡선을 바꾸지 못하게 한다.
+
+        [Test]
+        public void InOutCubic_MatchesReferenceCurve()
+        {
+            // easeInOutCubic(x) = x < 0.5 ? 4x^3 : 1 - (-2x+2)^3/2
+            Assert.That(EaseLibrary.Evaluate(EaseKind.InOutCubic, 0.25f), Is.EqualTo(0.0625f).Within(1e-4f));
+            Assert.That(EaseLibrary.Evaluate(EaseKind.InOutCubic, 0.75f), Is.EqualTo(0.9375f).Within(1e-4f));
+        }
+
+        [Test]
+        public void OutBack_MatchesReferenceCurve()
+        {
+            // easeOutBack(x) = 1 + c3*(x-1)^3 + c1*(x-1)^2, c1 = 1.70158, c3 = c1 + 1
+            Assert.That(EaseLibrary.Evaluate(EaseKind.OutBack, 0.5f), Is.EqualTo(1.0876975f).Within(1e-4f));
+            // 오버슈트가 최대인 지점(x = 1 - 2*c1/(3*c3) ≈ 0.5801) 근처
+            Assert.That(EaseLibrary.Evaluate(EaseKind.OutBack, 0.6f), Is.EqualTo(1.09935168f).Within(1e-4f));
+        }
+
+        [Test]
+        public void OutElastic_MatchesReferenceCurve()
+        {
+            // easeOutElastic(x) = pow(2, -10x) * sin((10x - 0.75) * c4) + 1, c4 = 2*pi/3
+            // 부호나 주기가 반전되면 여기서 드러난다.
+            Assert.That(EaseLibrary.Evaluate(EaseKind.OutElastic, 0.25f), Is.EqualTo(0.9116117f).Within(1e-4f));
+            Assert.That(EaseLibrary.Evaluate(EaseKind.OutElastic, 0.5f), Is.EqualTo(1.015625f).Within(1e-4f));
+        }
+
+        [Test]
+        public void OutBounce_MatchesReferenceCurve_AcrossAllFourSegments()
+        {
+            // easeOutBounce(x): n1 = 7.5625, d1 = 2.75, 4개 구간
+            Assert.That(EaseLibrary.Evaluate(EaseKind.OutBounce, 0.2f), Is.EqualTo(0.3025f).Within(1e-4f), "구간 1 (x < 1/d1)");
+            Assert.That(EaseLibrary.Evaluate(EaseKind.OutBounce, 0.5f), Is.EqualTo(0.765625f).Within(1e-4f), "구간 2 (x < 2/d1)");
+            Assert.That(EaseLibrary.Evaluate(EaseKind.OutBounce, 0.8f), Is.EqualTo(0.94f).Within(1e-4f), "구간 3 (x < 2.5/d1)");
+            Assert.That(EaseLibrary.Evaluate(EaseKind.OutBounce, 0.95f), Is.EqualTo(0.98453125f).Within(1e-4f), "구간 4 (그 외)");
+        }
     }
 }
