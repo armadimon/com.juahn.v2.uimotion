@@ -4,7 +4,10 @@ using System.Collections.Generic;
 namespace Juahn.UiMotion
 {
     /// <summary>
-    /// 직렬화된 배열들(노드 · 간선 · 트리거)을 실행기가 쓸 수 있는 조회 구조로 바꾼다.
+    /// 직렬화된 배열들(노드 · 간선)을 실행기가 쓸 수 있는 조회 구조로 바꾼다.
+    ///
+    /// <b>트리거 목록은 넘겨받지 않고 노드에서 계산한다</b> — 슬롯과 같은 파생값이다
+    /// (<see cref="TriggerIntrospector"/>). 진입점은 <see cref="TriggerNode"/> 자신이다.
     ///
     /// <b>이것이 <see cref="IMotionGraphView"/> 구현의 전부다.</b> Unity의 <c>MotionGraph</c>는
     /// ScriptableObject 껍데기일 뿐이고 모든 조회를 여기에 위임한다. 그 덕분에 그래프 로직이
@@ -26,7 +29,6 @@ namespace Juahn.UiMotion
     {
         private static readonly NodeId[] NoChildren = new NodeId[0];
         private static readonly NodeId[] NoNodes = new NodeId[0];
-        private static readonly TriggerDeclaration[] NoTriggers = new TriggerDeclaration[0];
 
         private readonly Dictionary<int, MotionNodeBase> _nodes = new Dictionary<int, MotionNodeBase>();
         private readonly Dictionary<int, NodeId[]> _children = new Dictionary<int, NodeId[]>();
@@ -40,18 +42,61 @@ namespace Juahn.UiMotion
             string graphName,
             IReadOnlyList<MotionNodeBase> nodes,
             IReadOnlyList<NodeLink> links,
-            IReadOnlyList<TriggerDeclaration> triggers,
+            IMotionLog log)
+            : this(graphName, nodes, links, null, log)
+        {
+        }
+
+        /// <param name="legacyTriggers">
+        /// 트리거를 노드로 옮기기 전에 저장된 목록. <b>읽지 않는다</b> — 비어 있지 않으면
+        /// 그 그래프가 아직 마이그레이션되지 않았다는 뜻이므로 시끄럽게 경고만 한다.
+        ///
+        /// 조용히 무시하면 마이그레이션을 잊은 그래프가 트리거를 통째로 잃은 채
+        /// 아무 말 없이 돌아간다. 팝업이 열리지 않는데 오류가 하나도 없는 상태가 된다.
+        /// </param>
+        public MotionGraphIndex(
+            string graphName,
+            IReadOnlyList<MotionNodeBase> nodes,
+            IReadOnlyList<NodeLink> links,
+            IReadOnlyList<TriggerDeclaration> legacyTriggers,
             IMotionLog log)
         {
             GraphName = string.IsNullOrEmpty(graphName) ? "<unnamed graph>" : graphName;
 
             _nodeIds = IndexNodes(nodes, log);
             IndexLinks(links);
-            _triggers = IndexTriggers(triggers, log);
+
+            var triggers = new List<TriggerDeclaration>();
+            TriggerIntrospector.Collect(nodes, triggers, log);
+            _triggers = triggers.ToArray();
+
+            for (int i = 0; i < _triggers.Length; i++)
+            {
+                _entries[_triggers[i].Name] = _triggers[i].Entry;
+            }
+
+            WarnAboutLegacyTriggers(legacyTriggers, log);
 
             var slots = new List<SlotDeclaration>();
             SlotIntrospector.Collect(nodes, slots);
             _slots = slots.ToArray();
+        }
+
+        /// <summary>
+        /// 옛 목록이 남아 있으면 크게 경고한다. 마이그레이션을 잊은 그래프는
+        /// 트리거를 잃은 채 조용히 도는 것이 가장 나쁜 결과다.
+        /// </summary>
+        private void WarnAboutLegacyTriggers(IReadOnlyList<TriggerDeclaration> legacy, IMotionLog log)
+        {
+            if (legacy == null || legacy.Count == 0 || log == null)
+            {
+                return;
+            }
+
+            log.Error("graph '" + GraphName + "' still stores " + legacy.Count +
+                " trigger declaration(s) from the old format. run " +
+                "Window > UI Motion > Migrate Graphs to convert them into Trigger nodes. " +
+                "until then this graph has no triggers.");
         }
 
         public string GraphName { get; }
@@ -165,37 +210,6 @@ namespace Juahn.UiMotion
             {
                 _children[pair.Key] = pair.Value.ToArray();
             }
-        }
-
-        private TriggerDeclaration[] IndexTriggers(IReadOnlyList<TriggerDeclaration> triggers, IMotionLog log)
-        {
-            if (triggers == null)
-            {
-                return NoTriggers;
-            }
-
-            var kept = new List<TriggerDeclaration>();
-
-            for (int i = 0; i < triggers.Count; i++)
-            {
-                TriggerDeclaration decl = triggers[i];
-                if (decl == null || string.IsNullOrEmpty(decl.Name))
-                {
-                    continue;
-                }
-
-                if (_entries.ContainsKey(decl.Name))
-                {
-                    Warn(log, "duptrigger:" + decl.Name,
-                        "duplicate trigger '" + decl.Name + "'; the first one wins");
-                    continue;
-                }
-
-                _entries[decl.Name] = decl.Entry;
-                kept.Add(decl);
-            }
-
-            return kept.ToArray();
         }
 
         /// <summary>

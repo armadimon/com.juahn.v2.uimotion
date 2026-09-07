@@ -20,13 +20,21 @@ namespace Juahn.UiMotion.Tests
             protected override IMotionHandle OnPlay(IMotionContext ctx) => MotionHandle.Completed;
         }
 
+        /// <summary>
+        /// 트리거 노드 하나. <b>진입점은 이 노드 자신이다</b> — 예전처럼 임의의 노드를
+        /// 진입점으로 가리키지 않는다.
+        /// </summary>
+        private static TriggerNode Trigger(int id, string name)
+        {
+            return new TriggerNode { Id = new NodeId(id), TriggerName = name };
+        }
+
         private static MotionGraphIndex Build(
             IReadOnlyList<MotionNodeBase> nodes = null,
             IReadOnlyList<NodeLink> links = null,
-            IReadOnlyList<TriggerDeclaration> triggers = null,
             IMotionLog log = null)
         {
-            return new MotionGraphIndex("g", nodes, links, triggers, log);
+            return new MotionGraphIndex("g", nodes, links, log);
         }
 
         [Test]
@@ -45,7 +53,7 @@ namespace Juahn.UiMotion.Tests
         [Test]
         public void BlankName_FallsBack()
         {
-            var index = new MotionGraphIndex(null, null, null, null, null);
+            var index = new MotionGraphIndex(null, null, null, null);
             Assert.That(index.GraphName, Is.Not.Null.And.Not.Empty);
         }
 
@@ -163,10 +171,9 @@ namespace Juahn.UiMotion.Tests
         }
 
         [Test]
-        public void GetEntry_FindsDeclaredTrigger()
+        public void GetEntry_FindsTriggerNode()
         {
-            var triggers = new[] { new TriggerDeclaration("Start", new NodeId(5)) };
-            MotionGraphIndex index = Build(triggers: triggers);
+            MotionGraphIndex index = Build(new MotionNodeBase[] { Trigger(5, "Start") });
 
             Assert.That(index.GetEntry("Start"), Is.EqualTo(new NodeId(5)));
             Assert.That(index.GetEntry("Loop"), Is.EqualTo(NodeId.None));
@@ -175,22 +182,34 @@ namespace Juahn.UiMotion.Tests
         [Test]
         public void GetEntry_IsCaseSensitive()
         {
-            var triggers = new[] { new TriggerDeclaration("Start", new NodeId(5)) };
+            MotionGraphIndex index = Build(new MotionNodeBase[] { Trigger(5, "Start") });
 
-            Assert.That(Build(triggers: triggers).GetEntry("start"), Is.EqualTo(NodeId.None));
+            Assert.That(index.GetEntry("start"), Is.EqualTo(NodeId.None));
+        }
+
+        [Test]
+        public void Triggers_AreDerivedFromNodes()
+        {
+            // 트리거 목록은 저작값이 아니라 노드에서 계산되는 파생값이다.
+            // 진입점은 트리거 노드 자신이므로 죽은 id가 목록에 남을 수 없다.
+            var nodes = new MotionNodeBase[] { Trigger(1, "Start"), new IdNode(2), Trigger(3, "End") };
+
+            IReadOnlyList<TriggerDeclaration> triggers = Build(nodes).Triggers;
+
+            Assert.That(triggers.Count, Is.EqualTo(2));
+            Assert.That(triggers[0].Name, Is.EqualTo("Start"));
+            Assert.That(triggers[0].Entry, Is.EqualTo(new NodeId(1)));
+            Assert.That(triggers[1].Name, Is.EqualTo("End"));
+            Assert.That(triggers[1].Entry, Is.EqualTo(new NodeId(3)));
         }
 
         [Test]
         public void DuplicateTrigger_FirstWins_AndLogs()
         {
             var log = new FakeLog();
-            var triggers = new[]
-            {
-                new TriggerDeclaration("Start", new NodeId(1)),
-                new TriggerDeclaration("Start", new NodeId(2)),
-            };
+            var nodes = new MotionNodeBase[] { Trigger(1, "Start"), Trigger(2, "Start") };
 
-            MotionGraphIndex index = Build(triggers: triggers, log: log);
+            MotionGraphIndex index = Build(nodes, log: log);
 
             Assert.That(index.GetEntry("Start"), Is.EqualTo(new NodeId(1)));
             Assert.That(index.Triggers.Count, Is.EqualTo(1), "런타임이 러너를 두 번 만들면 안 된다");
@@ -200,17 +219,48 @@ namespace Juahn.UiMotion.Tests
         [Test]
         public void NamelessTrigger_IsDropped()
         {
-            var triggers = new[] { new TriggerDeclaration(null, new NodeId(1)) };
+            var nodes = new MotionNodeBase[] { new TriggerNode { Id = new NodeId(1) } };
 
-            Assert.That(Build(triggers: triggers).Triggers, Is.Empty);
+            Assert.That(Build(nodes).Triggers, Is.Empty);
+        }
+
+        // --- 옛 형식의 트리거 목록 ----------------------------------------------
+        // 마이그레이션을 잊은 그래프가 트리거를 통째로 잃은 채 조용히 도는 것이
+        // 가장 나쁜 결과다. 팝업이 열리지 않는데 오류가 하나도 없는 상태가 된다.
+
+        [Test]
+        public void LegacyTriggerList_IsNotRead()
+        {
+            var legacy = new[] { new TriggerDeclaration("Start", new NodeId(1)) };
+
+            var index = new MotionGraphIndex("g",
+                new MotionNodeBase[] { new IdNode(1) }, null, legacy, new FakeLog());
+
+            Assert.That(index.Triggers, Is.Empty);
+            Assert.That(index.GetEntry("Start"), Is.EqualTo(NodeId.None));
         }
 
         [Test]
-        public void NullTriggerEntry_IsDropped()
+        public void LegacyTriggerList_IsAnError()
         {
-            var triggers = new TriggerDeclaration[] { null };
+            var log = new FakeLog();
+            var legacy = new[] { new TriggerDeclaration("Start", new NodeId(1)) };
 
-            Assert.That(Build(triggers: triggers).Triggers, Is.Empty);
+            new MotionGraphIndex("g", new MotionNodeBase[] { new IdNode(1) }, null, legacy, log);
+
+            Assert.That(log.Errors.Count, Is.EqualTo(1),
+                "경고가 아니라 오류다. 조용히 트리거를 잃는 것이 최악이다");
+        }
+
+        [Test]
+        public void EmptyLegacyTriggerList_IsSilent()
+        {
+            var log = new FakeLog();
+
+            new MotionGraphIndex("g", new MotionNodeBase[] { Trigger(1, "Start") },
+                null, new TriggerDeclaration[0], log);
+
+            Assert.That(log.Errors, Is.Empty);
         }
 
         [Test]
@@ -245,9 +295,9 @@ namespace Juahn.UiMotion.Tests
         [Test]
         public void Triggers_ResultIsNotAMutableList()
         {
-            var triggers = new[] { new TriggerDeclaration("Start", new NodeId(1)) };
+            var nodes = new MotionNodeBase[] { Trigger(1, "Start") };
 
-            Assert.That(Build(triggers: triggers).Triggers, Is.Not.InstanceOf<List<TriggerDeclaration>>());
+            Assert.That(Build(nodes).Triggers, Is.Not.InstanceOf<List<TriggerDeclaration>>());
         }
 
         [Test]
@@ -275,14 +325,18 @@ namespace Juahn.UiMotion.Tests
         public void Index_DrivesMotionRuntime()
         {
             // Index가 IMotionGraphView로 실제 실행기에 그대로 꽂히는지 확인한다.
+            // 진입점은 트리거 노드 자신이고 옛 진입 노드가 그 자식이 된다.
             var log = new ExecutionLog();
-            var first = new RecordingEffect("a") { Log = log, Id = new NodeId(1) };
-            var second = new RecordingEffect("b") { Log = log, Id = new NodeId(2) };
+            var first = new RecordingEffect("a") { Log = log, Id = new NodeId(2) };
+            var second = new RecordingEffect("b") { Log = log, Id = new NodeId(3) };
 
             var index = new MotionGraphIndex("g",
-                new MotionNodeBase[] { first, second },
-                new[] { new NodeLink(new NodeId(1), new NodeId(2)) },
-                new[] { new TriggerDeclaration("Start", new NodeId(1)) },
+                new MotionNodeBase[] { Trigger(1, "Start"), first, second },
+                new[]
+                {
+                    new NodeLink(new NodeId(1), new NodeId(2)),
+                    new NodeLink(new NodeId(2), new NodeId(3)),
+                },
                 null);
 
             var runtime = new MotionRuntime(index, null, null);

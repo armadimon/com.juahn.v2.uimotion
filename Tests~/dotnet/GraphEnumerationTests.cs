@@ -38,7 +38,7 @@ namespace Juahn.UiMotion.Tests
 
         private static MotionGraphIndex Index(params MotionNodeBase[] nodes)
         {
-            return new MotionGraphIndex("g", nodes, null, null, null);
+            return new MotionGraphIndex("g", nodes, null, null);
         }
 
         [Test]
