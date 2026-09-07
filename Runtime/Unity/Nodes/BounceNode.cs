@@ -25,6 +25,8 @@ namespace Juahn.UiMotion
 
         public override bool Reverts => true;
 
+        public override bool BlocksChildren => true;
+
         protected override IMotionHandle OnPlay(IMotionContext ctx)
         {
             RectTransform target = Resolve<RectTransform>(ctx, Target);

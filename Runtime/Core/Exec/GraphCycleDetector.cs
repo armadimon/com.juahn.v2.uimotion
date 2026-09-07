@@ -50,16 +50,15 @@ namespace Juahn.UiMotion
         {
             var targets = new List<IMotionGraphView>();
 
-            // 노드 id는 1부터 순서대로다. null이 나오면 끝이다.
-            for (int i = 1; ; i++)
+            IReadOnlyList<NodeId> ids = graph.NodeIds;
+            if (ids == null)
             {
-                MotionNodeBase node = graph.GetNode(new NodeId(i));
-                if (node == null)
-                {
-                    break;
-                }
+                return targets;
+            }
 
-                var sub = node as SubGraphNode;
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var sub = graph.GetNode(ids[i]) as SubGraphNode;
                 if (sub == null)
                 {
                     continue;

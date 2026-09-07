@@ -25,12 +25,14 @@ namespace Juahn.UiMotion
     public sealed class MotionGraphIndex : IMotionGraphView
     {
         private static readonly NodeId[] NoChildren = new NodeId[0];
+        private static readonly NodeId[] NoNodes = new NodeId[0];
         private static readonly TriggerDeclaration[] NoTriggers = new TriggerDeclaration[0];
 
         private readonly Dictionary<int, MotionNodeBase> _nodes = new Dictionary<int, MotionNodeBase>();
         private readonly Dictionary<int, NodeId[]> _children = new Dictionary<int, NodeId[]>();
         private readonly Dictionary<string, NodeId> _entries = new Dictionary<string, NodeId>(StringComparer.Ordinal);
 
+        private readonly NodeId[] _nodeIds;
         private readonly TriggerDeclaration[] _triggers;
         private readonly SlotDeclaration[] _slots;
 
@@ -43,7 +45,7 @@ namespace Juahn.UiMotion
         {
             GraphName = string.IsNullOrEmpty(graphName) ? "<unnamed graph>" : graphName;
 
-            IndexNodes(nodes, log);
+            _nodeIds = IndexNodes(nodes, log);
             IndexLinks(links);
             _triggers = IndexTriggers(triggers, log);
 
@@ -57,6 +59,8 @@ namespace Juahn.UiMotion
         public IReadOnlyList<TriggerDeclaration> Triggers => _triggers;
 
         public IReadOnlyList<SlotDeclaration> Slots => _slots;
+
+        public IReadOnlyList<NodeId> NodeIds => _nodeIds;
 
         public MotionNodeBase GetNode(NodeId id)
         {
@@ -81,12 +85,18 @@ namespace Juahn.UiMotion
             return _children.TryGetValue(parent.Value, out children) ? children : NoChildren;
         }
 
-        private void IndexNodes(IReadOnlyList<MotionNodeBase> nodes, IMotionLog log)
+        /// <summary>
+        /// 노드를 사전에 담고 <b>살아남은 id를 저작 순서 그대로</b> 돌려준다.
+        /// 사전에 넣는 바로 그 자리에서 목록에도 담으므로 둘이 어긋날 수 없다.
+        /// </summary>
+        private NodeId[] IndexNodes(IReadOnlyList<MotionNodeBase> nodes, IMotionLog log)
         {
             if (nodes == null)
             {
-                return;
+                return NoNodes;
             }
+
+            var ids = new List<NodeId>(nodes.Count);
 
             for (int i = 0; i < nodes.Count; i++)
             {
@@ -116,7 +126,11 @@ namespace Juahn.UiMotion
                 }
 
                 _nodes[node.Id.Value] = node;
+                ids.Add(node.Id);
             }
+
+            // 조회 결과는 전부 배열로 굳힌다 — 호출자가 되캐스팅해 고칠 수 없어야 한다.
+            return ids.ToArray();
         }
 
         private void IndexLinks(IReadOnlyList<NodeLink> links)

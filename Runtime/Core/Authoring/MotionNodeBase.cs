@@ -32,6 +32,17 @@ namespace Juahn.UiMotion
         public virtual bool Reverts => false;
 
         /// <summary>
+        /// 이 노드가 자식으로 이어지는 흐름을 <b>영원히</b> 막는가.
+        ///
+        /// <c>Float</c>·<c>Bounce</c>처럼 취소될 때까지 끝나지 않는 노드가 true다.
+        /// 실행기는 이 값을 읽지 않는다 — 끝나지 않는 핸들이 이미 그 일을 한다.
+        /// 이것은 <b>검사 도구</b>가 "이 노드에 자식을 달면 그 자식은 절대 실행되지 않는다"를
+        /// 알아내기 위한 표시다. 그런 배선은 오류를 내지 않고 조용히 아무 일도 하지 않으므로
+        /// 사람이 스스로 찾기 어렵다.
+        /// </summary>
+        public virtual bool BlocksChildren => false;
+
+        /// <summary>
         /// 이 노드를 시작한다. <b>절대 null을 돌려주지 않는다</b> —
         /// 파생이 null을 주면 <see cref="MotionHandle.Completed"/>로 바꾼다.
         ///

@@ -17,6 +17,16 @@ namespace Juahn.UiMotion
 
         IReadOnlyList<SlotDeclaration> Slots { get; }
 
+        /// <summary>
+        /// 이 그래프의 모든 노드 id. 저작 순서를 유지한다.
+        ///
+        /// <b>왜 필요한가</b> — 노드 id는 <b>연속이 아니다.</b> 저작 API가 id를 재사용하지
+        /// 않으므로(지운 id를 다시 쓰면 남아 있던 간선이 엉뚱한 노드에 붙는다) 노드를 지우면
+        /// id에 구멍이 생긴다. <c>GetNode</c>를 1부터 훑다가 null에서 멈추는 코드는
+        /// 그 구멍 뒤의 노드를 전부 놓친다.
+        /// </summary>
+        IReadOnlyList<NodeId> NodeIds { get; }
+
         /// <summary>노드를 찾는다. 없으면 null — 결손 노드는 실행 시 건너뛴다.</summary>
         MotionNodeBase GetNode(NodeId id);
 

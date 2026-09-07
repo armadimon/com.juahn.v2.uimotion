@@ -110,6 +110,8 @@ namespace Juahn.UiMotion
         /// </summary>
         public IReadOnlyList<SlotDeclaration> Slots => Index.Slots;
 
+        public IReadOnlyList<NodeId> NodeIds => Index.NodeIds;
+
         public MotionNodeBase GetNode(NodeId id) => Index.GetNode(id);
 
         public NodeId GetEntry(string triggerName) => Index.GetEntry(triggerName);

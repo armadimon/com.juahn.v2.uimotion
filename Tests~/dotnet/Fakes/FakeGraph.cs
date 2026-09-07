@@ -20,6 +20,23 @@ namespace Juahn.UiMotion.Tests
 
         public IReadOnlyList<SlotDeclaration> Slots => _slots;
 
+        public IReadOnlyList<NodeId> NodeIds
+        {
+            get
+            {
+                var ids = new List<NodeId>(_nodes.Count);
+                for (int i = 0; i < _nodes.Count; i++)
+                {
+                    if (_nodes[i] != null)
+                    {
+                        ids.Add(_nodes[i].Id);
+                    }
+                }
+
+                return ids;
+            }
+        }
+
         /// <summary>노드를 넣고 id를 부여한다. id는 1부터 순서대로다.</summary>
         public NodeId Add(MotionNodeBase node)
         {
