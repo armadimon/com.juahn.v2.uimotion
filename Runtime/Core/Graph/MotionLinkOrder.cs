@@ -35,7 +35,10 @@ namespace Juahn.UiMotion
 
             for (int i = 0; i < links.Count; i++)
             {
-                if (links[i].From == parent)
+                // IsValid를 거르는 이유 — MotionGraphIndex.GetChildren도 잘못된 간선을
+                // 건너뛴다. 여기서 세면 화면의 "두 번째 자식"과 이 목록의 두 번째가
+                // 어긋나 엉뚱한 간선을 옮기게 된다.
+                if (links[i].IsValid && links[i].From == parent)
                 {
                     into.Add(i);
                 }

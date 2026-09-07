@@ -193,6 +193,55 @@ namespace Juahn.UiMotion
             return false;
         }
 
+        /// <summary>
+        /// 결손 노드를 정리한다. 지운 개수를 돌려준다.
+        ///
+        /// <b>결손 노드는 id가 없다.</b> 타입이 사라진 그래프를 열면 <c>SerializeReference</c>가
+        /// 배열에 <c>null</c>을 남기는데, null에는 <see cref="NodeId"/>가 없으므로
+        /// <see cref="RemoveNode"/>로는 지목할 수 없다. 그래서 별도 API가 필요하다.
+        ///
+        /// 그래프 창도 이것을 그리지 못한다 — 노드가 없으니 뷰를 만들 수 없다.
+        /// 검사기는 오류로 잡는데 고칠 방법이 없는 상태가 되므로, 에디터가 이 메서드를
+        /// "결손 노드 정리" 버튼으로 노출한다.
+        ///
+        /// 남아 있던 간선과 트리거 진입점은 건드리지 않는다 — 그것들은 이미 존재하지 않는
+        /// id를 가리키고 있고, 검사기가 따로 오류로 보고한다.
+        /// </summary>
+        public int RemoveMissingNodes()
+        {
+            int removed = 0;
+
+            for (int i = _nodes.Count - 1; i >= 0; i--)
+            {
+                if (_nodes[i] == null)
+                {
+                    _nodes.RemoveAt(i);
+                    removed++;
+                }
+            }
+
+            if (removed > 0)
+            {
+                Invalidate();
+            }
+
+            return removed;
+        }
+
+        /// <summary>결손 노드가 하나라도 있는가. 에디터가 버튼을 보일지 정할 때 쓴다.</summary>
+        public bool HasMissingNodes()
+        {
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                if (_nodes[i] == null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>파생 인덱스를 버린다. 다음 조회에서 다시 계산된다.</summary>
         public void Invalidate()
         {

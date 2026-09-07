@@ -199,5 +199,44 @@ namespace Juahn.UiMotion.Tests
 
             Assert.That(ChildrenOf(links, P), Is.EqualTo(new[] { W, X, Y }));
         }
+
+        [Test]
+        public void IndicesOf_SkipsInvalidLinks()
+        {
+            // MotionGraphIndex.GetChildren도 잘못된 간선을 건너뛴다. 둘이 다르게 세면
+            // 화면의 자식 순서와 이 목록이 어긋나 엉뚱한 간선을 옮기게 된다.
+            var links = new List<NodeLink>
+            {
+                new NodeLink(P, X),
+                new NodeLink(P, NodeId.None),   // 손상된 에셋에서 나올 수 있다
+                new NodeLink(P, Y),
+            };
+
+            var into = new List<int>();
+            MotionLinkOrder.IndicesOf(links, P, into);
+
+            Assert.That(into, Is.EqualTo(new[] { 0, 2 }));
+        }
+
+        [Test]
+        public void Resolve_WithInvalidLinkPresent_MovesTheRightOne()
+        {
+            var links = new List<NodeLink>
+            {
+                new NodeLink(P, X),
+                new NodeLink(P, NodeId.None),
+                new NodeLink(P, Y),
+            };
+
+            int globalFrom;
+            int globalTo;
+            Assert.That(MotionLinkOrder.Resolve(links, P, 1, 0, out globalFrom, out globalTo), Is.True);
+
+            ApplyMove(links, globalFrom, globalTo);
+
+            // 유효한 자식만 세면 [X, Y]이고 1번(Y)을 0번(X) 자리로 옮긴 것이다.
+            // 잘못된 간선을 자식으로 셌다면 [X, None, Y]가 되어 1번이 None을 가리켰을 것이다.
+            Assert.That(ChildrenOf(links, P), Is.EqualTo(new[] { Y, X, NodeId.None }));
+        }
     }
 }
