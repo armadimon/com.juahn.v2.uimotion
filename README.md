@@ -57,6 +57,11 @@ UiService는 소비자가 따로 설치하는 외부 패키지라 여기에 적�
 
 ## 설치
 
+> **아직 원격 저장소에 올라가지 않았다.** 아래 URL은 `com.juahn.v2.vcontainer` 등
+> 다른 v2 패키지의 명명 규약을 따른 것이고, 네 저장소 모두 현재는 로컬에만 있다.
+> 그때까지는 `Packages/` 아래에 임베드하거나 `file:` 경로로 참조한다 —
+> 예시 그래프를 생성하려면 어차피 임베드가 필요하다(`Library/PackageCache`는 읽기 전용이다).
+
 Unity Package Manager → Add package from git URL:
 
 ```
