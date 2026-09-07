@@ -45,6 +45,11 @@ namespace Juahn.UiMotion
         [SerializeField] private int _nextNodeId = 1;
 
         /// <summary>
+        /// 그래프 창의 노드 위치. 실행과 무관하다 — 인덱스는 이것을 읽지 않는다.
+        /// </summary>
+        [SerializeField] private List<NodeLayout> _layout = new List<NodeLayout>();
+
+        /// <summary>
         /// 파생 조회 구조. 저장되지 않고 필요할 때 계산된다.
         ///
         /// 이것은 읽기 전용 캐시이지 실행 상태가 아니다 — 같은 에셋을 여러 오브젝트가
@@ -117,6 +122,20 @@ namespace Juahn.UiMotion
         public NodeId GetEntry(string triggerName) => Index.GetEntry(triggerName);
 
         public IReadOnlyList<NodeId> GetChildren(NodeId parent) => Index.GetChildren(parent);
+
+        /// <summary>그래프 창에서의 노드 위치. 저장된 것이 없으면 원점이다.</summary>
+        public Vector2 GetNodePosition(NodeId id)
+        {
+            for (int i = 0; i < _layout.Count; i++)
+            {
+                if (_layout[i].Node == id)
+                {
+                    return _layout[i].Position;
+                }
+            }
+
+            return Vector2.zero;
+        }
 
         private MotionGraphIndex Index
         {

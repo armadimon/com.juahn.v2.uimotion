@@ -12,6 +12,7 @@ namespace Juahn.UiMotion
     ///
     /// <b>규칙: 이 클래스에 메서드를 추가하면 마지막 줄이 <c>Invalidate()</c>여야 한다.</b>
     /// 강제하는 장치가 없으므로 사람이 지켜야 한다. 빠뜨리면 낡은 인덱스가 조용히 살아남는다.
+    /// 예외는 <see cref="SetNodePosition"/> 하나뿐이다 — 이유는 그 메서드의 주석에 있다.
     /// </summary>
     public sealed partial class MotionGraph
     {
@@ -73,8 +74,42 @@ namespace Juahn.UiMotion
                 }
             }
 
+            for (int i = _layout.Count - 1; i >= 0; i--)
+            {
+                if (_layout[i].Node == id)
+                {
+                    _layout.RemoveAt(i);
+                }
+            }
+
             Invalidate();
             return true;
+        }
+
+        /// <summary>
+        /// 그래프 창에서의 노드 위치를 저장한다.
+        ///
+        /// <b>인덱스를 무효화하지 않는다.</b> 위치는 실행에 아무 영향이 없고, 노드를 끌 때마다
+        /// 인덱스를 다시 만들면 노드가 많은 그래프에서 끌기가 눈에 띄게 버벅인다.
+        /// 이것이 이 클래스에서 <c>Invalidate()</c>를 부르지 않는 유일한 메서드다.
+        /// </summary>
+        public void SetNodePosition(NodeId id, Vector2 position)
+        {
+            if (!id.IsValid)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _layout.Count; i++)
+            {
+                if (_layout[i].Node == id)
+                {
+                    _layout[i] = new NodeLayout(id, position);
+                    return;
+                }
+            }
+
+            _layout.Add(new NodeLayout(id, position));
         }
 
         /// <summary>간선을 잇는다. 같은 간선을 두 번 넣지 않는다.</summary>
