@@ -73,12 +73,25 @@ namespace Juahn.UiMotion
             return coerced;
         }
 
-        private static T Coerce<T>(object raw) where T : class
+        /// <summary>
+        /// 바인딩된 것에서 원하는 타입을 얻는다. 얻을 수 없으면 <c>null</c>.
+        /// 경고를 내지 않는다.
+        ///
+        /// <b>에디터의 "재생 전 검사"가 이것을 쓴다.</b> 같은 판정을 인스펙터가 따로
+        /// 구현하면 언젠가 갈라지고, 그때 인스펙터가 "괜찮다"고 한 것이 런타임에 경고를
+        /// 낸다 — 도구가 거짓말을 하는 것은 검사가 아예 없는 것보다 나쁘다.
+        /// 그래서 <see cref="Coerce{T}"/>도 이것에 위임한다.
+        /// </summary>
+        public static object Coerce(object raw, System.Type wanted)
         {
-            var direct = raw as T;
-            if (direct != null)
+            if (raw == null || wanted == null)
             {
-                return direct;
+                return null;
+            }
+
+            if (wanted.IsInstanceOfType(raw))
+            {
+                return raw;
             }
 
             var component = raw as Component;
@@ -90,13 +103,21 @@ namespace Juahn.UiMotion
             }
 
             // GameObject 자체를 원하는 노드(SetActive 등)도 있다.
-            var wanted = go as T;
-            if (wanted != null)
+            if (wanted.IsInstanceOfType(go))
             {
-                return wanted;
+                return go;
             }
 
-            return go.GetComponent(typeof(T)) as T;
+            Component found = go.GetComponent(wanted);
+
+            // 없는 컴포넌트를 물으면 Unity의 "가짜 null"이 돌아온다. 참조 비교로는
+            // null이 아니므로 여기서 진짜 null로 바꾼다.
+            return found == null ? null : found;
+        }
+
+        private static T Coerce<T>(object raw) where T : class
+        {
+            return Coerce(raw, typeof(T)) as T;
         }
 
         private static void WarnUnbound(
