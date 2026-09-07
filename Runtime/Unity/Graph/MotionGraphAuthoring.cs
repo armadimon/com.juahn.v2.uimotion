@@ -214,11 +214,13 @@ namespace Juahn.UiMotion
         ///
         /// 두 번 불러도 안전하다. 옮긴 것은 목록에서 지운다.
         /// </summary>
-        public int MigrateLegacyTriggers()
+        public MigrationReport MigrateLegacyTriggers()
         {
+            var report = new MigrationReport();
+
             if (_triggers.Count == 0)
             {
-                return 0;
+                return report;
             }
 
             // 목록을 통째로 떼어 내고 앞에서부터 돈다.
@@ -233,25 +235,27 @@ namespace Juahn.UiMotion
             _triggers.Clear();
 
             var migrated = new HashSet<string>(StringComparer.Ordinal);
-            int moved = 0;
 
             for (int i = 0; i < legacy.Count; i++)
             {
                 TriggerDeclaration decl = legacy[i];
                 if (decl == null || string.IsNullOrWhiteSpace(decl.Name))
                 {
+                    report.Dropped.Add("이름 없는 트리거 선언을 버렸습니다. 발사할 방법이 없던 것입니다.");
                     continue;
                 }
 
                 string name = decl.Name.Trim();
                 if (!migrated.Add(name))
                 {
+                    report.Dropped.Add("트리거 '" + name + "'이 여러 번 선언돼 있어 먼저 나온 것만 옮겼습니다.");
                     continue;
                 }
 
                 NodeId trigger = AddTrigger(name, decl.Policy);
                 if (!trigger.IsValid)
                 {
+                    report.Dropped.Add("트리거 '" + name + "'의 노드를 만들지 못했습니다.");
                     continue;
                 }
 
@@ -263,19 +267,41 @@ namespace Juahn.UiMotion
                     node.Policy = decl.Policy;
                 }
 
-                // 옛 진입 노드를 새 트리거 노드 아래에 붙인다. 그 노드가 이미 트리거
-                // 노드였다면(예전 표식 방식) 이을 것이 없다.
+                // 옛 진입 노드를 새 트리거 노드 아래에 붙인다.
+                //
+                // 잇지 못하는 경우를 조용히 넘기지 않는다. 그러면 그 트리거를 발사해도
+                // 아무 일도 일어나지 않는데 오류가 하나도 없는 상태가 된다 —
+                // 마이그레이션이 만들 수 있는 가장 나쁜 결과다.
                 MotionNodeBase entry = decl.Entry.IsValid ? FindNodeInList(decl.Entry) : null;
-                if (entry != null && decl.Entry != trigger && !(entry is TriggerNode))
+
+                if (!decl.Entry.IsValid)
+                {
+                    report.Unlinked.Add("트리거 '" + name + "'은 옮기기 전에도 진입 노드가 없었습니다. 연결할 연출을 직접 이어 주세요.");
+                }
+                else if (entry == null)
+                {
+                    report.Unlinked.Add("트리거 '" + name + "'의 진입 노드 " + decl.Entry +
+                        "가 이미 사라져 있어 잇지 못했습니다. 연결할 연출을 직접 이어 주세요.");
+                }
+                else if (decl.Entry == trigger)
+                {
+                    // 예전 표식 방식. 그 노드가 곧 트리거 노드이므로 이을 것이 없다. 정상이다.
+                }
+                else if (entry is TriggerNode)
+                {
+                    report.Unlinked.Add("트리거 '" + name + "'의 진입 노드가 다른 트리거 노드(" + decl.Entry +
+                        ")를 가리키고 있어 잇지 않았습니다. 그 아래 연출이 끊겼는지 확인하세요.");
+                }
+                else
                 {
                     Link(trigger, decl.Entry);
                 }
 
-                moved++;
+                report.Moved++;
             }
 
             Invalidate();
-            return moved;
+            return report;
         }
 
         /// <summary>

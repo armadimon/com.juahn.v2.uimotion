@@ -941,7 +941,14 @@ Task 4가 `SetTrigger`/`RemoveTrigger`를 지웠다. 먼저 컴파일을 되살�
         public static void MigrateAll()
 ```
 
-프로젝트의 모든 `MotionGraph`를 훑어 `MigrateLegacyTriggers()`를 부르고, 옮긴 그래프마다 `EditorUtility.SetDirty` + 마지막에 `AssetDatabase.SaveAssets`. 결과를 한 줄로 알린다 — 그래프 N개 중 M개를 옮겼습니다.
+프로젝트의 모든 `MotionGraph`를 훑어 `MigrateLegacyTriggers()`를 부르고, 옮긴 그래프마다 `EditorUtility.SetDirty` + 마지막에 `AssetDatabase.SaveAssets`.
+
+**결과를 개수만으로 알리지 않는다.** `MigrateLegacyTriggers`는 `MigrationReport`를 돌려주는데 거기에 *이어지지 않은 트리거*와 *버린 것*이 들어 있다. 그것이 있는 그래프는 사람이 직접 손봐야 하므로:
+
+- `report.NeedsAttention`인 그래프는 `Debug.LogWarning`으로 **그래프 에셋을 문맥으로** 남긴다 (콘솔에서 눌러 바로 갈 수 있게).
+- 마지막 요약에 "손봐야 할 그래프 N개"를 함께 알린다.
+
+이어지지 않은 트리거를 조용히 넘기면 그 트리거를 발사해도 아무 일이 없는데 오류가 하나도 없는 상태가 된다 — 마이그레이션이 만들 수 있는 가장 나쁜 결과다.
 
 **되돌릴 수 없는 변경이므로 확인 대화상자를 띄운다.** `EditorUtility.DisplayDialog`로 무엇이 바뀌는지 알리고 취소할 수 있게 한다.
 
