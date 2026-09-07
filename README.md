@@ -3,9 +3,9 @@
 JuahnFrameworkV2 스택의 UI 연출 패키지. 노드 그래프로 UI 움직임을 조립하고,
 그 결과를 에셋 하나로 저장해 어디에든 재사용한다.
 
-**현재 상태:** 순수 C# 코어와 Unity 런타임 계층이 구현됨. 그래프 창 · 노드 팔레트 ·
-슬롯 자동 바인딩 인스펙터 같은 에디터 툴과, UiService · DOTween 어댑터는 후속 작업이다.
-지금은 그래프를 코드로 조립해 재생할 수 있다.
+**현재 상태:** 네 패키지가 전부 구현됨 — 순수 C# 코어와 Unity 런타임 계층, 저작 툴,
+UiService 브릿지, DOTween 백엔드. 남은 것은 Unity 에디터에서 손으로 하는 동작 확인이고
+각 저장소의 `docs/unity-verification.md`가 그 목록이다.
 
 ## 어셈블리 두 개
 
@@ -38,6 +38,23 @@ Unity 라이선스 없이 모든 푸시마다 CI에서 검사된다.
 **자연 완료 시에는 되돌리지 않는다** — 페이드인이 끝나자마자 다시 투명해지면 안 되기
 때문이다. 되돌림은 "중간에 끊겼다"의 처리이지 "끝났다"의 처리가 아니다.
 
+## 패키지 넷
+
+이 저장소는 그중 하나다. 나머지 셋은 필요할 때만 넣는다.
+
+| 패키지 | 언제 필요한가 | 무엇을 요구하는가 |
+|---|---|---|
+| `com.juahn.v2.uimotion` | **언제나.** 나머지 셋이 전부 이것에 의존한다 | `com.unity.ugui` (UPM 의존성) |
+| `com.juahn.v2.uimotion.editor` | 그래프를 코드가 아니라 GUI로 만들려면 | 이 패키지 (UPM 의존성) |
+| `com.juahn.v2.uimotion.uiservice` | UiService의 팝업 생명주기에 연출을 붙이려면 | 이 패키지 + `com.juahn.uiservice` + UniTask |
+| `com.juahn.v2.uimotion.dotween` | 프로파일러가 발사 할당을 실제로 잡을 때만 | 이 패키지 + DOTween + `UIMOTION_DOTWEEN` 심볼 |
+
+`com.juahn.uiservice`와 DOTween은 어느 `package.json`에도 의존성으로 적혀 있지 않다.
+UiService는 소비자가 따로 설치하는 외부 패키지라 여기에 적으면 버전이 어긋났을 때 UPM이
+해석에 실패하고, DOTween은 에셋스토어 플러그인이라 UPM이 해석할 이름 자체가 없다.
+둘 다 asmdef가 어셈블리 · DLL 이름으로 참조한다. **먼저 프로젝트에 넣어 두는 것은
+소비자의 몫이다.**
+
 ## 설치
 
 Unity Package Manager → Add package from git URL:
@@ -58,6 +75,36 @@ https://github.com/armadimon/com.juahn.v2.uimotion.editor.git
 
 에디터 전용이라 게임 빌드에는 들어가지 않는다. 그래프 편집 창 · 노드 팔레트 ·
 슬롯 자동 바인딩 · Node Doctor · 인에디터 프리뷰 · 프리셋 브라우저가 들어 있다.
+
+### UiService 브릿지 (`com.juahn.v2.uimotion.uiservice`)
+
+```
+https://github.com/armadimon/com.juahn.v2.uimotion.uiservice.git
+```
+
+`MotionGraphFeature` 하나가 전부다. `MotionPlayer` 옆에 붙이면 `UiPresenter`가 `Start`
+그래프가 끝난 뒤에 열림 완료를 보고하고, `End` 그래프가 끝난 뒤에 비활성화한다.
+`com.juahn.uiservice`와 UniTask가 프로젝트에 먼저 있어야 한다.
+
+### DOTween 백엔드 (`com.juahn.v2.uimotion.dotween`)
+
+```
+https://github.com/armadimon/com.juahn.v2.uimotion.dotween.git
+```
+
+**설치가 두 단계이고 두 번째를 빼먹으면 아무 일도 일어나지 않는다.** 패키지를 넣은 뒤
+Player Settings > Other Settings > Scripting Define Symbols에 **`UIMOTION_DOTWEEN`**을
+추가해야 한다. 심볼이 없으면 asmdef의 `defineConstraints`가 어셈블리를 통째로 컴파일에서
+빼고, **오류는 하나도 나지 않는다** — UI Motion이 내장 러너로 계속 잘 돌기 때문에 겉으로는
+성공한 것처럼 보인다. 켰다고 생각하는데 아무것도 달라지지 않았다면 이 심볼부터 확인한다.
+
+`versionDefines`로는 이것을 할 수 없다. DOTween은 에셋스토어 플러그인이라 UPM 패키지가
+아니고, `versionDefines`는 패키지 이름에 걸리기 때문이다.
+
+그리고 **켜기 전에 측정한다.** 이 백엔드가 주는 것은 DOTween의 트윈 풀링 하나이고,
+`Float`·`Bounce` 같은 유지 연출은 내장 러너도 이미 프레임당 할당이 0이다. 유한 트윈을
+초당 여러 번 재발사할 때만 차이가 난다. 에디터 프리뷰는 언제나 내장 러너를 쓴다 —
+DOTween의 업데이트 루프가 런타임 MonoBehaviour라 에디트 모드에서 돌지 않는다.
 
 ## Unity 계층
 

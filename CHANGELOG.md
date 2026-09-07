@@ -69,3 +69,20 @@ Unity 계층 컴파일 게이트 (`Tools~/compile-check`). 설치된 Unity의 �
 - 스펙 7.1의 "팔레트에서 노드에 호버하면 그 예시 그래프가 그 자리에서 재생된다"를 실제
   구현에 맞게 고쳤다. 재생에는 대상 오브젝트와 슬롯 바인딩이 필요하므로 팔레트는
   예시 그래프를 **여는 것**까지 한다
+- README에 **패키지 넷의 지도**를 넣었다. 무엇이 필수이고 무엇이 선택인지, 각각이 무엇을
+  요구하는지를 한 표로 모으고, UiService 브릿지와 DOTween 백엔드의 설치 절을 더했다.
+  DOTween 절은 **설치가 두 단계**라는 것과 `UIMOTION_DOTWEEN` 심볼을 빼먹으면 오류 없이
+  조용히 아무 일도 일어나지 않는다는 것을 함께 적었다
+- 스펙 3.4를 실제 구현으로 고쳤다. `versionDefines`로 DOTween을 조건부로 만든다고 적혀
+  있었는데 **그것은 동작하지 않는다** — DOTween은 에셋스토어 플러그인이라 UPM 패키지가
+  아니고 `versionDefines`가 걸 이름이 없다. 실제로 쓴 `defineConstraints` +
+  `overrideReferences` + `precompiledReferences`와 그 대가(조용한 실패)로 바꿨다.
+  **DOTween 백엔드를 에디터 프리뷰에서 쓰지 않는 이유**도 같은 절에 적었다 — DOTween의
+  업데이트 루프가 런타임 MonoBehaviour라 에디트 모드에서 돌지 않고, 그러면 핸들의
+  `IsDone`이 영원히 false가 되어 프리뷰가 걸린다
+- 스펙 6절에 **닫힘 완료원을 `OnPresenterClosed`에서 풀면 안 되는 이유**를 적었다.
+  `InternalCloseProcessAsync`가 `NotifyFeaturesClosing()` 바로 다음 줄에서
+  `NotifyFeaturesClosed()`를 부르고 `await`는 그보다 뒤에 오므로, 거기서 풀면 `End`
+  연출이 한 프레임도 보이지 않는다. 브릿지에 그 오버라이드가 없는 것이 의도다.
+  `OnDisable`·`OnDestroy`의 안전망과 `_waitForStart`/`_waitForEnd`도 함께 적었다
+- 스펙 3.2·3.3의 어셈블리 참조 목록을 실제 asmdef에 맞췄다

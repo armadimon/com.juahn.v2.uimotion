@@ -99,7 +99,7 @@ Runtime/Unity/
 
 ### 3.2 `com.juahn.v2.uimotion.editor` — 관리 툴
 
-참조: `juahn.v2.UiMotion`. `includePlatforms: [Editor]`.
+참조: `juahn.v2.UiMotion`, `juahn.v2.UiMotion.Core`. `includePlatforms: [Editor]`.
 
 - `MotionGraphWindow` — GraphView 기반 그래프 편집 창
 - `NodePalette` — 리플렉션으로 노드를 스캔해 카테고리별로 나열, 미검증 노드는 별도 섹션으로 격리
@@ -110,15 +110,25 @@ Runtime/Unity/
 
 ### 3.3 `com.juahn.v2.uimotion.uiservice` — UiService 브릿지
 
-참조: `juahn.v2.UiMotion`, `juahn.UiService`. 파일 1~2개.
+참조: `juahn.v2.UiMotion`, `juahn.v2.UiMotion.Core`, `juahn.UiService`, `UniTask`. 런타임 파일 둘 — `MotionGraphFeature`와 진단용 `MotionUiServiceLog`.
 
 `MotionGraphFeature : PresenterFeatureBase, ITransitionFeature` 하나가 병합의 전부다. 매핑은 6절 참조.
 
+`com.juahn.uiservice`는 이 패키지의 `package.json` 의존성에 **적지 않는다.** 소비자가 따로 설치하는 외부 패키지라 여기에 적으면 버전이 어긋났을 때 UPM이 해석에 실패한다. asmdef가 어셈블리 이름으로 참조한다.
+
 ### 3.4 `com.juahn.v2.uimotion.dotween` — 선택 백엔드
 
-참조: `juahn.v2.UiMotion`, DOTween. `versionDefines`로 DOTween이 없으면 컴파일에서 제외된다.
+참조: `juahn.v2.UiMotion`, `juahn.v2.UiMotion.Core`, 그리고 `overrideReferences` + `precompiledReferences: ["DOTween.dll"]`로 명시한 DOTween.
 
 `DoTweenRunner : IMotionTweenRunner`. PrimeTween 백엔드도 같은 자리에 별도 패키지로 추가할 수 있다.
+
+**DOTween이 없을 때 이 어셈블리를 빼는 방법은 `versionDefines`가 아니다.** `versionDefines`는 UPM 패키지 이름과 버전 범위에 걸리는데, DOTween은 에셋스토어 플러그인이라 UPM 패키지가 아니다. 걸 이름 자체가 없으므로 발동하지 않는다.
+
+대신 `defineConstraints: ["UIMOTION_DOTWEEN"]`을 쓰고, 사용자가 Player Settings > Other Settings > Scripting Define Symbols에 그 심볼을 한 번 추가한다. 심볼이 없으면 어셈블리가 통째로 컴파일에서 빠지고 UI Motion은 내장 러너로 계속 돈다 — DOTween이 없는 프로젝트에 이 패키지가 딸려 들어와도 아무것도 깨지지 않는다.
+
+> **이것의 대가는 조용한 실패다.** 심볼을 빼먹으면 오류가 하나도 나지 않는다. 패키지는 설치돼 있고 연출도 정상이지만 백엔드는 그대로 내장 러너다. "DOTween을 켰는데 아무것도 달라지지 않았다"는 이 심볼부터 확인한다.
+
+**이 백엔드는 에디터 프리뷰에서 쓰지 않는다.** DOTween의 업데이트 루프는 런타임에 만들어지는 MonoBehaviour라 에디트 모드에서 돌지 않는다. 프리뷰에 DOTween 핸들이 걸리면 `IsDone`이 영원히 false가 되어 프리뷰가 멈춘 채 끝나지 않는다. 그래서 `MotionDoTweenBootstrap.Apply`는 `Application.isPlaying`이 아니면 아무것도 하지 않고, 프리뷰는 언제나 내장 러너를 쓴다. 두 러너가 같은 이징 표를 쓰므로 프리뷰의 목적(타이밍 확인)에는 차이가 없다.
 
 ## 4. 런타임 아키텍처
 
@@ -234,6 +244,12 @@ public sealed class MotionPlayer : MonoBehaviour
 `InternalOpenProcessAsync`의 실제 순서는 `NotifyFeaturesOpening()` → `gameObject.SetActive(true)` → `OnOpened()` → `NotifyFeaturesOpened()` → `await WaitForOpenTransitionsAsync()` 다. 그래서 `OnPresenterOpening()`에서 `Fire("Start")`를 부르면 안 된다 — 그 시점에는 오브젝트가 아직 비활성이라 펌프에 등록되지 않았고, 곧이어 `SetActive(true)`가 `MotionPlayer.OnEnable`을 돌려 `PlayOnEnable`이 `Start`를 두 번째로 발사한다.
 
 > `WaitForOpenTransitionsAsync`는 이미 완료된 태스크를 건너뛴다. 그러므로 완료원은 프리젠터가 `await`하기 **전에** 만들어져야 한다. 기존 `AnimationDelayFeature`가 `OnPresenterOpened`에서 만드는 이유가 이것이다.
+
+같은 이유의 반대편이 닫힘 쪽에 있다. **닫힘 완료원은 `OnPresenterClosed`에서 풀지 않는다 — 브릿지에 그 오버라이드 자체가 없다.** `InternalCloseProcessAsync`는 `NotifyFeaturesClosing()` 바로 다음 줄에서 `NotifyFeaturesClosed()`를 부르고 `await WaitForCloseTransitionsAsync()`는 그보다 뒤에 온다. 거기서 풀면 프리젠터가 `Succeeded`를 보고 건너뛰어 `End` 연출이 한 프레임도 보이지 않은 채 사라진다. 완료원을 푸는 것은 `WaitFor` 콜백뿐이다.
+
+완료원이 영영 안 풀리는 경로는 `OnDisable`과 `OnDestroy`가 막는다. 프리젠터가 아닌 다른 경로로 오브젝트가 비활성화·파괴돼도 팝업이 박제되지 않는다. `MotionPlayer` 쪽도 `OnDisable`·`OnDestroy`에서 `StopAll`을 돌려 대기자를 푼다. 완료원은 `TrySetResult`라 두 번 불려도 안전하다.
+
+기다림은 `_waitForStart` / `_waitForEnd`로 위상마다 끌 수 있다. 둘 다 기본은 켜짐이다. 끄면 트리거는 그대로 발사하되 완료원을 만들지 않아 프리젠터가 곧바로 다음 단계로 넘어간다 — `_waitForEnd`를 끄면 `End`는 발사되자마자 `SetActive(false)`에 잘려 사실상 보이지 않는다.
 
 UiService를 쓰지 않는 프로젝트는 `PlayOnEnable`로 코드 없이 돌리거나, 자체 UI 베이스에서 `Fire` / `WaitFor`를 직접 부른다.
 
