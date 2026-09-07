@@ -314,6 +314,10 @@ namespace Juahn.UiMotion
                 _log.Reset();
             }
 
+            // 제자리 크기 기억을 버린다. 풀에서 꺼내 다시 쓰는 오브젝트가 지난번 연출
+            // 도중의 크기를 제자리 크기로 굽지 않게 하기 위해서다. 파괴된 대상도 함께 치운다.
+            MotionBaseScale.ForgetUnder(transform);
+
             EnsureRuntime();
 
             if (_runtime != null)
