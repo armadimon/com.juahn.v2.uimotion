@@ -71,6 +71,65 @@ namespace Juahn.UiMotion.Tests
             Assert.That(MotionGraphValidator.Validate(Build(nodes, links)), Is.Empty);
         }
 
+        // --- 트리거 노드 규칙 ---------------------------------------------------
+
+        [Test]
+        public void NamelessTriggerNode_IsWarning()
+        {
+            var nodes = new MotionNodeBase[] { new TriggerNode { Id = new NodeId(1) } };
+
+            Assert.That(Has(MotionGraphValidator.Validate(Build(nodes)),
+                MotionIssueLevel.Warning, "no name"), Is.True);
+        }
+
+        [Test]
+        public void LinkIntoTriggerNode_IsWarning()
+        {
+            // 트리거 노드는 진입점이다. 거기로 들어오는 간선은 아무 의미가 없고,
+            // 만든 사람은 "이 연출 뒤에 저 트리거가 이어진다"고 착각한 것이다.
+            // 실제로 이어지지 않으므로 조용히 아무 일도 일어나지 않는다.
+            var nodes = new MotionNodeBase[]
+            {
+                Trigger(1, "Start"), new PlainNode(2), Trigger(3, "Loop"),
+            };
+            var links = new[]
+            {
+                new NodeLink(new NodeId(1), new NodeId(2)),
+                new NodeLink(new NodeId(2), new NodeId(3)),
+            };
+
+            Assert.That(Has(MotionGraphValidator.Validate(Build(nodes, links)),
+                MotionIssueLevel.Warning, "entry point"), Is.True);
+        }
+
+        [Test]
+        public void GraphWithoutAnyTrigger_IsWarning()
+        {
+            // 발사할 방법이 없는 그래프다. 붙여 두면 아무 일도 일어나지 않는다.
+            var nodes = new MotionNodeBase[] { new PlainNode(1) };
+
+            Assert.That(Has(MotionGraphValidator.Validate(Build(nodes)),
+                MotionIssueLevel.Warning, "no trigger"), Is.True);
+        }
+
+        [Test]
+        public void GraphWithATrigger_DoesNotWarnAboutMissingTriggers()
+        {
+            var nodes = new MotionNodeBase[] { Trigger(1, "Start") };
+
+            Assert.That(Has(MotionGraphValidator.Validate(Build(nodes)),
+                MotionIssueLevel.Warning, "no trigger"), Is.False);
+        }
+
+        [Test]
+        public void EmptyGraph_DoesNotWarnAboutMissingTriggers()
+        {
+            // 아직 아무것도 만들지 않은 그래프에까지 잔소리하면 새 그래프를 만들 때마다
+            // 경고가 뜬다. 노드가 하나라도 있을 때만 묻는다.
+            Assert.That(Has(MotionGraphValidator.Validate(Build()),
+                MotionIssueLevel.Warning, "no trigger"), Is.False);
+        }
+
         [Test]
         public void LinkToMissingNode_IsError()
         {

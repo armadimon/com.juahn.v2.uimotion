@@ -41,7 +41,7 @@ namespace Juahn.UiMotion
             }
 
             CheckDanglingLinks(graph, ids, into);
-            CheckTriggers(graph, into);
+            CheckTriggers(graph, ids, into);
             CheckBlockedChildren(graph, ids, into);
             CheckLinkCycles(graph, ids, into);
             CheckReachability(graph, ids, into);
@@ -83,7 +83,67 @@ namespace Juahn.UiMotion
             }
         }
 
-        private static void CheckTriggers(IMotionGraphView graph, List<MotionGraphIssue> into)
+        /// <summary>
+        /// 트리거 규칙. 진입점이 <see cref="TriggerNode"/> 자신이 되면서 예전 규칙 둘
+        /// ("없는 노드를 가리킨다" · "진입점이 비었다")은 <b>성립할 수 없게 되었다</b>.
+        /// 대신 노드로 옮겨서 생긴 새 실수 셋을 잡는다.
+        /// </summary>
+        private static void CheckTriggers(
+            IMotionGraphView graph, IReadOnlyList<NodeId> ids, List<MotionGraphIssue> into)
+        {
+            bool sawTriggerNode = false;
+
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var trigger = graph.GetNode(ids[i]) as TriggerNode;
+                if (trigger == null)
+                {
+                    continue;
+                }
+
+                sawTriggerNode = true;
+
+                if (string.IsNullOrWhiteSpace(trigger.TriggerName))
+                {
+                    into.Add(new MotionGraphIssue(MotionIssueLevel.Warning, ids[i],
+                        "this trigger node has no name, so nothing can fire it"));
+                }
+            }
+
+            // 트리거 노드로 들어오는 간선. 만든 사람은 "이 연출 뒤에 저 트리거가 이어진다"고
+            // 읽지만 실제로는 이어지지 않는다. 오류도 나지 않아 찾기 어렵다.
+            for (int i = 0; i < ids.Count; i++)
+            {
+                IReadOnlyList<NodeId> children = graph.GetChildren(ids[i]);
+                for (int c = 0; c < children.Count; c++)
+                {
+                    if (graph.GetNode(children[c]) is TriggerNode)
+                    {
+                        into.Add(new MotionGraphIssue(MotionIssueLevel.Warning, children[c],
+                            "a link points into this trigger node, but a trigger is an entry point " +
+                            "and is only reached by firing it by name"));
+                    }
+                }
+            }
+
+            if (!sawTriggerNode && ids.Count > 0)
+            {
+                into.Add(new MotionGraphIssue(MotionIssueLevel.Warning, NodeId.None,
+                    "this graph has no trigger node, so nothing can play it. add one from the palette."));
+            }
+
+            CheckLoopRepeats(graph, into);
+        }
+
+        /// <summary>
+        /// <c>Loop</c>가 한 번 돌고 멈추는지. 규칙 자체는 예전과 같고 진입점을 찾는
+        /// 방법만 바뀌었다.
+        ///
+        /// Warning이 아니라 Info인 이유 — 게임 코드가 매번 <c>Fire("Loop")</c>를 직접
+        /// 부르는 그래프도 있고, 그때는 유한 Loop가 정상이다. 거짓 경고가 쌓이면
+        /// 사람이 경고 전체를 무시하게 되므로 확신할 수 없는 규칙은 올리지 않는다.
+        /// </summary>
+        private static void CheckLoopRepeats(IMotionGraphView graph, List<MotionGraphIssue> into)
         {
             IReadOnlyList<TriggerDeclaration> triggers = graph.Triggers;
             if (triggers == null)
@@ -94,30 +154,13 @@ namespace Juahn.UiMotion
             for (int i = 0; i < triggers.Count; i++)
             {
                 TriggerDeclaration decl = triggers[i];
-                if (decl == null)
+                if (decl == null || decl.Name != MotionRuntime.LoopTrigger)
                 {
                     continue;
                 }
 
-                if (!decl.Entry.IsValid)
+                if (!LoopRepeats(graph, decl.Entry))
                 {
-                    into.Add(new MotionGraphIssue(MotionIssueLevel.Warning, NodeId.None,
-                        "trigger '" + decl.Name + "' has no entry node; firing it does nothing"));
-                    continue;
-                }
-
-                if (graph.GetNode(decl.Entry) == null)
-                {
-                    into.Add(new MotionGraphIssue(MotionIssueLevel.Error, NodeId.None,
-                        "trigger '" + decl.Name + "' points at " + decl.Entry + " which no longer exists"));
-                    continue;
-                }
-
-                if (decl.Name == MotionRuntime.LoopTrigger && !LoopRepeats(graph, decl.Entry))
-                {
-                    // Warning이 아니라 Info인 이유 — 게임 코드가 매번 Fire("Loop")를 직접
-                    // 부르는 그래프도 있고, 그때는 유한 Loop가 정상이다. 거짓 경고가 쌓이면
-                    // 사람이 경고 전체를 무시하게 되므로 확신할 수 없는 규칙은 올리지 않는다.
                     into.Add(new MotionGraphIssue(MotionIssueLevel.Info, decl.Entry,
                         "trigger 'Loop' runs once and stops. if the game does not re-fire it every " +
                         "time, wrap it in Repeat or use a node that keeps going such as Float or Bounce"));
