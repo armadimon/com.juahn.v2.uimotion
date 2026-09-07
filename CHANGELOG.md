@@ -2,6 +2,17 @@
 
 ## [0.1.0] - 미출시
 
+### 더함 — uGUI 캔버스 비용 실측과 Fade 폴백 경고
+
+- `docs/ugui-cost.md` — 캔버스가 무엇에 얼마를 쓰는지 Unity 안에서 재서 남겼다.
+  재현 하네스는 `docs/ugui-cost-harness~/`
+- **`Fade`가 `Graphic`으로 폴백할 때 경고한다.** 단 그 대상 아래에 다른 `Graphic`이
+  더 있을 때만이다. 그때는 두 가지가 동시에 걸린다 — 대상 자신만 흐려지고 자식은
+  또렷하게 남아 **보이는 결과가 다르고**, `Graphic.color`는 바꾼 개수에 비례하는
+  메시 재생성이라 30개면 `CanvasGroup.alpha`의 여덟 배다.
+  Graphic 하나짜리 페이드에는 알리지 않는다 — 정당한 쓰임이고 비용도 트랜스폼과 같다.
+  거기까지 경고하면 경고가 무시되기 시작한다
+
 ### 변경 — Scale 노드가 곡선을 받는다
 
 IdlePaori의 `UIScaleModule`을 그대로 옮겼다. `To`/`Relative`/`Ease` 대신 `Curve`/`Duration`을

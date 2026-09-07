@@ -282,6 +282,20 @@ public sealed class TiltNode : UnityEffectNode
 - `SubGraphNode`의 런타임 중첩 깊이는 8로 제한된다. 에디터의 순환 검사와 별개로
   손으로 만든 순환 에셋에 대한 방어다
 
+## 성능
+
+연출 자체의 비용은 무시할 만하다. 실제로 프레임을 잡아먹는 것은 **연출이 건드린 결과로
+캔버스가 다시 만들어지는 비용**이고, 그것은 이 패키지가 아니라 uGUI의 성질이다.
+실측값과 대응책은 `docs/ugui-cost.md`에 있다. 요점만 —
+
+- **비용은 "몇 개가 움직였나"가 아니라 "캔버스가 더러워졌나"가 정한다.** 1개를 움직이는
+  것과 30개를 움직이는 것이 12퍼센트 차이인 반면, 캔버스가 5배 커지면 38퍼센트 는다
+- **`Graphic.color`만 개수에 비례해 는다.** 30개를 바꾸면 프레임당 98µs로, 같은 수를
+  `CanvasGroup.alpha`로 처리한 9.85µs의 여덟 배다. `Fade`가 `CanvasGroup`을 우선 쓰는
+  이유이고, 그것이 없어 폴백할 때 경고하는 이유다
+- **`CanvasGroup`은 배치를 나누지 않는다.** 배치를 나누는 것은 자식 `Canvas`다. 페이드는
+  `CanvasGroup`으로 묶고, 자주 움직이는 덩어리는 자식 `Canvas`로 뗀다
+
 ## 설계 문서
 
 `docs/superpowers/specs/2026-09-04-ui-motion-graph-design.md`
