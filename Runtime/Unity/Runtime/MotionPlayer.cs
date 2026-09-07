@@ -144,6 +144,10 @@ namespace Juahn.UiMotion
         /// <summary>
         /// 트리거가 끝나면 부른다. <b>자연 완료든 취소든 부른다</b> — 대기자를 영영
         /// 붙잡아 두면 팝업이 닫히지 않는다. 지금 재생 중이 아니면 즉시 부른다.
+        ///
+        /// <b>반드시 <c>Fire</c> 다음에 부른다.</b> 먼저 부르면 아직 재생 중이 아니므로
+        /// 그 자리에서 즉시 완료 처리되고, 뒤이어 시작한 연출은 아무도 기다리지 않는다.
+        /// 팝업이 닫히는 연출이 보이지 않고 사라지는 형태로 나타난다.
         /// </summary>
         public void WaitFor(string trigger, Action onCompleted)
         {

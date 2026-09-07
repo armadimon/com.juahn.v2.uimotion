@@ -546,14 +546,16 @@ namespace Juahn.UiMotion.UiService
             _player.WaitFor(MotionRuntime.EndTrigger, CompleteClose);
         }
 
-        /// <inheritdoc />
-        public override void OnPresenterClosed()
-        {
-            // 닫힘이 끝났는데 대기자가 남아 있으면 프리젠터가 영영 비활성화되지 않는다.
-            // WaitFor는 취소된 경우에도 콜백을 부르므로 정상 경로에서는 이미 풀렸지만,
-            // 플레이어가 통째로 파괴되는 경우까지 여기서 막는다.
-            CompleteClose();
-        }
+        // OnPresenterClosed는 일부러 덮지 않는다.
+        //
+        // 거기서 CompleteClose를 부르고 싶어지지만 그러면 안 된다. UiPresenter는
+        // NotifyFeaturesClosing() 바로 다음 줄에서 NotifyFeaturesClosed()를 부르고,
+        // await WaitForCloseTransitionsAsync()는 그보다 뒤다. 즉 완료원을 만든 직후
+        // 같은 프레임에 풀어 버리는 것이 되어, 프리젠터가 이미 완료된 태스크를 건너뛰고
+        // End 연출이 한 프레임도 보이지 않은 채 SetActive(false)가 된다.
+        //
+        // 대기자가 남는 경우의 안전망은 아래 OnDisable/OnDestroy와
+        // MotionPlayer.OnDestroy -> StopAll -> ReleaseWaiters가 이미 맡고 있다.
 
         private void OnDisable()
         {
@@ -611,6 +613,7 @@ namespace Juahn.UiMotion.UiService
 | End 그래프가 정상 완료 | `WaitFor` 콜백 |
 | End 그래프가 취소됨 | `WaitFor`는 취소에도 콜백을 부른다 |
 | 그래프에 `End` 트리거가 없음 | `Fire`가 경고 1회 후 `ReleaseWaiters`, `WaitFor`가 즉시 콜백 |
+| 열린 적 없는(비활성) 프리젠터를 닫음 | `Fire`가 `isActiveAndEnabled` 검사로 no-op, `WaitFor`가 즉시 콜백 |
 | `MotionPlayer`에 그래프가 없음 | `Fire`가 no-op, `WaitFor`가 즉시 콜백 |
 | 닫히는 중에 오브젝트가 파괴됨 | `MotionPlayer.OnDestroy` -> `StopAll` -> `ReleaseWaiters`, 그리고 이 컴포넌트의 `OnDestroy` |
 | 닫히는 중에 비활성화됨 | 이 컴포넌트의 `OnDisable` |
