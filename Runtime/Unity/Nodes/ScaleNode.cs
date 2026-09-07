@@ -25,7 +25,7 @@ namespace Juahn.UiMotion
     /// <b>이징을 따로 두지 않는다.</b> 곡선이 이징까지 겸한다. 밖에서 또 휘면 저작한
     /// 모양이 나오지 않는다.
     ///
-    /// <b>기준은 지금 크기가 아니라 제자리 크기다</b>(<see cref="MotionBaseScale"/>).
+    /// <b>기준은 지금 크기가 아니라 제자리 크기다</b>(<see cref="MotionPlayer.BaseScaleOf"/>).
     /// 지금 크기를 기준으로 삼으면 연출 도중에 다시 발사됐을 때 중간값이 기준이 되어
     /// 재생할수록 크기가 흘러내린다. 조용히 일어나고 원인을 찾을 단서가 없다.
     ///
@@ -68,7 +68,7 @@ namespace Juahn.UiMotion
                 return MotionHandle.Skipped;
             }
 
-            Vector3 baseScale = MotionBaseScale.Of(target);
+            Vector3 baseScale = ctx.BaseScale(target);
             AnimationCurve curve = Curve;
 
             Remember(ctx, delegate

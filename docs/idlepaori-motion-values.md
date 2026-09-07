@@ -30,7 +30,7 @@
 
 **기준은 지금 크기가 아니라 제자리 크기다.** 뗌이 시작될 때 대상은 이미 0.95배이므로
 "지금 크기의 1.15배"로 재면 1.0925배가 되고, 연타하면 크기가 조금씩 흘러내린다.
-`MotionBaseScale`이 제자리 크기를 기억하는 이유가 이것이다.
+`MotionPlayer`가 제자리 크기를 기억하는 이유가 이것이다.
 
 **눌림 판정 영역을 스케일하지 말 것.** 레이캐스트 대상을 줄이면 축소되는 순간 판정
 영역도 줄어들어, 테두리를 눌렀다 떼면 포인터가 영역 밖이라 클릭이 무효화된다. 슬롯에는
@@ -100,7 +100,7 @@
 | `AppearCurves` | 코어 | 세기를 지정하는 OutBack, 슬램. UnityEngine을 쓰지 않아 `dotnet test`로 검증된다 |
 | `MotionCurve` | Unity | `EvaluateNormalized` — 가로축을 언제나 0~1로 편다 |
 | `MotionScaleCurves` | Unity | 배율 곡선 프리셋 8개 |
-| `MotionBaseScale` | Unity | 대상의 제자리 크기를 기억한다. `MotionPlayer`가 활성화될 때 잊는다 |
+| `MotionPlayer.BaseScaleOf` | Unity | 대상의 제자리 크기를 기억한다. 플레이어마다 따로 들고, 활성화될 때 비운다 |
 | `ScaleNode` | Unity | **곡선 기반으로 바뀌었다.** `To`/`Relative`/`Ease` 대신 `Curve`/`Duration` |
 | `MotionCurvePresets` | 에디터 | 곡선 필드 아래의 프리셋 고르개. 곡선과 시간을 함께 넣는다 |
 | `MotionPresetGenerator` | 에디터 | `Window > UI Motion > Generate Preset Graphs` |
@@ -147,7 +147,7 @@ IdlePaori의 `UIScaleModule`은 `Stop()`에서 **지금 배율에서 1로** `Out
 규약이고, 여기만 예외로 두면 규약이 규약이 아니게 된다. 대신 그래프에서 뗌을 별도
 트리거로 두면 같은 결과가 나오고 **캔버스에 보인다** — `ButtonPressRelease` 프리셋이 그것이다.
 
-### `MotionBaseScale`의 함정 하나
+### 제자리 크기 기억의 함정 하나
 
 연출이 이미 대상의 크기를 바꿔 놓은 뒤에 처음 물으면 **그 크기가 제자리 크기로 굽힌다.**
 같은 대상에 크기를 만지는 연출을 둘 이상 겹치지 말 것. `ScaleNode` 하나가 그 대상의

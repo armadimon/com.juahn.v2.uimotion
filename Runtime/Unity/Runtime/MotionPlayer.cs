@@ -34,6 +34,20 @@ namespace Juahn.UiMotion
         // 읽기 전용 뷰. 원본 배열을 들여다보는 창이므로 한 번만 만든다.
         [NonSerialized] private ReadOnlyCollection<SlotBinding> _bindingsView;
 
+        /// <summary>
+        /// 이 플레이어가 만지는 대상들의 <b>제자리 크기</b>.
+        ///
+        /// <b>왜 필요한가</b> — 크기 연출은 "지금 크기의 몇 배"가 아니라 "제자리 크기의 몇 배"로
+        /// 재야 한다. 지금 크기를 기준으로 삼으면 연출 도중에 다시 발사됐을 때 중간값이
+        /// 기준이 되어 재생할수록 크기가 흘러내린다. 조용히 일어나고 단서가 없다.
+        ///
+        /// <b>왜 전역이 아니라 플레이어마다인가</b> — 전역 사전이면 활성화될 때마다 "내 것"을
+        /// 골라내려고 사전 전체를 훑어야 하고, 그 판별이 <c>Transform.IsChildOf</c>라 네이티브
+        /// 호출이다. 슬롯 300개짜리 화면을 열면 300번의 훑기가 겹쳐 O(n²)이 된다. 여기 두면
+        /// 활성화는 자기 것만 비우면 되고, 플레이어가 죽을 때 함께 사라져 샐 곳도 없다.
+        /// </summary>
+        [NonSerialized] private Dictionary<Transform, Vector3> _baseScales;
+
         /// <summary>지금 재생 중인 그래프.</summary>
         public MotionGraph Graph => _graph;
 
@@ -305,6 +319,35 @@ namespace Juahn.UiMotion
             _runtime.Tick(unscaled ? unscaledDelta : scaledDelta);
         }
 
+        /// <summary>
+        /// 이 대상의 제자리 크기. 아직 모르면 지금 크기를 그것으로 굽는다.
+        ///
+        /// <b>함정 하나</b> — 다른 연출이 이미 크기를 바꿔 놓은 뒤에 처음 물으면 그 크기가
+        /// 제자리 크기가 된다. 한 대상의 <c>localScale</c>은 노드 하나가 소유해야 한다.
+        /// </summary>
+        public Vector3 BaseScaleOf(Transform target)
+        {
+            if (target == null)
+            {
+                return Vector3.one;
+            }
+
+            if (_baseScales == null)
+            {
+                _baseScales = new Dictionary<Transform, Vector3>();
+            }
+
+            Vector3 known;
+            if (_baseScales.TryGetValue(target, out known))
+            {
+                return known;
+            }
+
+            Vector3 current = target.localScale;
+            _baseScales[target] = current;
+            return current;
+        }
+
         private void OnEnable()
         {
             // 다시 활성화되면 경고 억제를 푼다. 지난번에 이미 경고한 문제를
@@ -315,8 +358,11 @@ namespace Juahn.UiMotion
             }
 
             // 제자리 크기 기억을 버린다. 풀에서 꺼내 다시 쓰는 오브젝트가 지난번 연출
-            // 도중의 크기를 제자리 크기로 굽지 않게 하기 위해서다. 파괴된 대상도 함께 치운다.
-            MotionBaseScale.ForgetUnder(transform);
+            // 도중의 크기를 제자리 크기로 굽지 않게 하기 위해서다.
+            if (_baseScales != null)
+            {
+                _baseScales.Clear();
+            }
 
             EnsureRuntime();
 

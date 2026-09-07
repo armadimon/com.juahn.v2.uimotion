@@ -11,6 +11,24 @@ namespace Juahn.UiMotion
     /// </summary>
     public static class MotionContextExtensions
     {
+        /// <summary>
+        /// 대상의 <b>제자리 크기</b>. 호스트가 기억한다.
+        ///
+        /// 호스트가 없으면 지금 크기를 그대로 돌려준다. 그 경우는 기억할 곳이 없으므로
+        /// 반복 재생에서 크기가 흘러내릴 수 있는데, 실행기 밖에서 만든 문맥에서만
+        /// 일어난다 — 런타임 경로는 언제나 <see cref="MotionPlayer"/>를 호스트로 넣는다.
+        /// </summary>
+        public static UnityEngine.Vector3 BaseScale(this IMotionContext ctx, UnityEngine.Transform target)
+        {
+            if (target == null)
+            {
+                return UnityEngine.Vector3.one;
+            }
+
+            var player = ctx == null ? null : ctx.Host as MotionPlayer;
+            return player == null ? target.localScale : player.BaseScaleOf(target);
+        }
+
         public static IMotionTweenRunner Tween(this IMotionContext ctx)
         {
             if (ctx == null)
