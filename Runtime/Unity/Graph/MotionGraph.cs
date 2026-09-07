@@ -32,6 +32,14 @@ namespace Juahn.UiMotion
         /// </summary>
         [SerializeField] private List<NodeLink> _links = new List<NodeLink>();
 
+        /// <summary>
+        /// 트리거를 노드로 옮기기 전의 저장 형식. <b>더 이상 읽지 않는다.</b>
+        ///
+        /// 지우지 않고 남겨 두는 이유는 옛 에셋에서 마이그레이션할 정보가 여기 있기
+        /// 때문이다. 마이그레이션이 끝나면 비워진다. 비어 있지 않은 그래프는
+        /// <see cref="MotionGraphIndex"/>가 오류로 알린다 — 조용히 트리거를 잃는 것이
+        /// 가장 나쁜 결과다.
+        /// </summary>
         [SerializeField] private List<TriggerDeclaration> _triggers = new List<TriggerDeclaration>();
 
         [SerializeField]

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,9 +11,11 @@ namespace Juahn.UiMotion
     /// 별도 어셈블리인 에디터 패키지가 써야 하므로 public이고, <c>#if UNITY_EDITOR</c>로
     /// 감싸지 않는다.
     ///
-    /// <b>규칙: 이 클래스에 메서드를 추가하면 마지막 줄이 <c>Invalidate()</c>여야 한다.</b>
-    /// 강제하는 장치가 없으므로 사람이 지켜야 한다. 빠뜨리면 낡은 인덱스가 조용히 살아남는다.
-    /// 예외는 <see cref="SetNodePosition"/> 하나뿐이다 — 이유는 그 메서드의 주석에 있다.
+    /// <b>규칙: 이 클래스에 그래프를 바꾸는 메서드를 추가하면 마지막 줄이
+    /// <c>Invalidate()</c>여야 한다.</b> 강제하는 장치가 없으므로 사람이 지켜야 한다.
+    /// 빠뜨리면 낡은 인덱스가 조용히 살아남는다. 예외는 <see cref="SetNodePosition"/>
+    /// 하나뿐이다 — 이유는 그 메서드의 주석에 있다. 아무것도 바꾸지 않는 조회
+    /// (<see cref="FindTrigger"/> 등)는 이 규칙의 대상이 아니다.
     /// </summary>
     public sealed partial class MotionGraph
     {
@@ -32,8 +35,11 @@ namespace Juahn.UiMotion
         }
 
         /// <summary>
-        /// 노드와 그것에 닿는 간선을 전부 지운다. 그 노드를 진입점으로 삼던 트리거는
-        /// 진입점을 잃고 <see cref="NodeId.None"/>이 된다 — 트리거 자체를 조용히 지우지는 않는다.
+        /// 노드와 그것에 닿는 간선을 전부 지운다.
+        ///
+        /// 트리거 노드를 지우면 <b>그 트리거가 사라진다.</b> 트리거 목록은 노드에서
+        /// 계산되는 파생값이므로 그것이 맞는 동작이다 — 진입점을 잃은 유령 트리거가
+        /// 목록에 남는 일이 없다.
         /// </summary>
         public bool RemoveNode(NodeId id)
         {
@@ -63,14 +69,6 @@ namespace Juahn.UiMotion
                 if (_links[i].From == id || _links[i].To == id)
                 {
                     _links.RemoveAt(i);
-                }
-            }
-
-            for (int i = 0; i < _triggers.Count; i++)
-            {
-                if (_triggers[i] != null && _triggers[i].Entry == id)
-                {
-                    _triggers[i].Entry = NodeId.None;
                 }
             }
 
@@ -155,42 +153,152 @@ namespace Juahn.UiMotion
             return true;
         }
 
-        /// <summary>트리거를 선언하거나 이미 있으면 덮어쓴다.</summary>
-        public void SetTrigger(string triggerName, NodeId entry, TriggerPolicy policy = TriggerPolicy.Restart)
+        /// <summary>
+        /// 트리거 노드를 만들어 넣는다. 같은 이름이 이미 있으면 그 노드의 id를 돌려주고
+        /// 새로 만들지 않는다 — 이름이 겹치면 뒤엣것이 무시되므로 만들어 봐야 혼란만 준다.
+        ///
+        /// <b>이미 있는 노드를 돌려줄 때 <paramref name="policy"/>는 적용되지 않는다.</b>
+        /// 이 API는 트리거를 만드는 것이지 고치는 것이 아니고, 이미 있는 노드의 정책은
+        /// 그 노드를 인스펙터에서 고쳐야 한다.
+        /// </summary>
+        public NodeId AddTrigger(string triggerName, TriggerPolicy policy = TriggerPolicy.Restart)
         {
-            if (string.IsNullOrEmpty(triggerName))
+            if (string.IsNullOrWhiteSpace(triggerName))
             {
-                return;
+                return NodeId.None;
             }
 
-            for (int i = 0; i < _triggers.Count; i++)
+            string trimmed = triggerName.Trim();
+
+            NodeId existing = FindTrigger(trimmed);
+            if (existing.IsValid)
             {
-                if (_triggers[i] != null && _triggers[i].Name == triggerName)
-                {
-                    _triggers[i].Entry = entry;
-                    _triggers[i].Policy = policy;
-                    Invalidate();
-                    return;
-                }
+                return existing;
             }
 
-            _triggers.Add(new TriggerDeclaration(triggerName, entry, policy));
-            Invalidate();
+            return AddNode(new TriggerNode { TriggerName = trimmed, Policy = policy });
         }
 
-        public bool RemoveTrigger(string triggerName)
+        /// <summary>이 이름의 트리거 노드를 찾는다. 없으면 <see cref="NodeId.None"/>.</summary>
+        public NodeId FindTrigger(string triggerName)
         {
-            for (int i = _triggers.Count - 1; i >= 0; i--)
+            if (string.IsNullOrWhiteSpace(triggerName))
             {
-                if (_triggers[i] != null && _triggers[i].Name == triggerName)
+                return NodeId.None;
+            }
+
+            string trimmed = triggerName.Trim();
+
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                var trigger = _nodes[i] as TriggerNode;
+                if (trigger == null || trigger.TriggerName == null)
                 {
-                    _triggers.RemoveAt(i);
-                    Invalidate();
-                    return true;
+                    continue;
+                }
+
+                if (trigger.TriggerName.Trim() == trimmed)
+                {
+                    return trigger.Id;
                 }
             }
 
-            return false;
+            return NodeId.None;
+        }
+
+        /// <summary>
+        /// 옛 형식의 트리거 목록을 트리거 노드로 옮긴다. 옮긴 개수를 돌려준다.
+        ///
+        /// 옛 진입 노드는 새 트리거 노드의 <b>자식이 된다</b> — 예전에는 진입점이 그
+        /// 노드였고 이제는 트리거 노드가 그 앞에 서기 때문이다. 실행 결과는 같다.
+        ///
+        /// 두 번 불러도 안전하다. 옮긴 것은 목록에서 지운다.
+        /// </summary>
+        public int MigrateLegacyTriggers()
+        {
+            if (_triggers.Count == 0)
+            {
+                return 0;
+            }
+
+            // 목록을 통째로 떼어 내고 앞에서부터 돈다.
+            //
+            // 통째로 떼어 내는 이유 — 아래에서 노드를 넣을 때마다 인덱스가 무효화되고,
+            // 다시 만들어질 때 남아 있는 옛 목록을 보고 오류를 낸다. 한 항목씩 지우면
+            // 마이그레이션 도중에 그 오류가 항목 수만큼 콘솔에 찍힌다.
+            //
+            // 앞에서부터 도는 이유 — 저작 순서를 지켜야 트리거 노드가 거꾸로 만들어지지
+            // 않고, 이름이 겹칠 때 옛 인덱스와 같은 "먼저 나온 것이 이긴다"가 된다.
+            var legacy = new List<TriggerDeclaration>(_triggers);
+            _triggers.Clear();
+
+            var migrated = new HashSet<string>(StringComparer.Ordinal);
+            int moved = 0;
+
+            for (int i = 0; i < legacy.Count; i++)
+            {
+                TriggerDeclaration decl = legacy[i];
+                if (decl == null || string.IsNullOrWhiteSpace(decl.Name))
+                {
+                    continue;
+                }
+
+                string name = decl.Name.Trim();
+                if (!migrated.Add(name))
+                {
+                    continue;
+                }
+
+                NodeId trigger = AddTrigger(name, decl.Policy);
+                if (!trigger.IsValid)
+                {
+                    continue;
+                }
+
+                // 이미 트리거 노드가 있었다면(예전 표식 방식) AddTrigger가 그것을 돌려주고
+                // 정책은 손대지 않는다. 정책의 진실은 옛 목록이므로 여기서 옮긴다.
+                var node = FindNodeInList(trigger) as TriggerNode;
+                if (node != null)
+                {
+                    node.Policy = decl.Policy;
+                }
+
+                // 옛 진입 노드를 새 트리거 노드 아래에 붙인다. 그 노드가 이미 트리거
+                // 노드였다면(예전 표식 방식) 이을 것이 없다.
+                MotionNodeBase entry = decl.Entry.IsValid ? FindNodeInList(decl.Entry) : null;
+                if (entry != null && decl.Entry != trigger && !(entry is TriggerNode))
+                {
+                    Link(trigger, decl.Entry);
+                }
+
+                moved++;
+            }
+
+            Invalidate();
+            return moved;
+        }
+
+        /// <summary>
+        /// 저작 목록을 직접 훑는다. <see cref="MotionGraph.GetNode"/>가 아니라 이것을 쓰는
+        /// 이유는 마이그레이션 도중 노드를 넣을 때마다 인덱스가 무효화되어 조회 한 번마다
+        /// 인덱스가 통째로 다시 계산되기 때문이다.
+        /// </summary>
+        private MotionNodeBase FindNodeInList(NodeId id)
+        {
+            if (!id.IsValid)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                if (_nodes[i] != null && _nodes[i].Id == id)
+                {
+                    return _nodes[i];
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -204,8 +312,8 @@ namespace Juahn.UiMotion
         /// 검사기는 오류로 잡는데 고칠 방법이 없는 상태가 되므로, 에디터가 이 메서드를
         /// "결손 노드 정리" 버튼으로 노출한다.
         ///
-        /// 남아 있던 간선과 트리거 진입점은 건드리지 않는다 — 그것들은 이미 존재하지 않는
-        /// id를 가리키고 있고, 검사기가 따로 오류로 보고한다.
+        /// 남아 있던 간선은 건드리지 않는다 — 이미 존재하지 않는 id를 가리키고 있고,
+        /// 검사기가 따로 오류로 보고한다.
         /// </summary>
         public int RemoveMissingNodes()
         {

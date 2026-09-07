@@ -17,6 +17,12 @@
   대신 셋을 새로 잡는다 — 이름 없는 트리거 노드 · 트리거 노드로 들어오는 간선 ·
   트리거 노드가 하나도 없는 그래프. 셋 다 런타임에 오류를 내지 않고 조용히 아무 일도
   하지 않는 종류라 도구가 잡아야 한다
+- 저작 API가 노드 기반이 됐다. `MotionGraph.SetTrigger` · `RemoveTrigger`를 지우고
+  `AddTrigger(name, policy)` · `FindTrigger(name)` · `MigrateLegacyTriggers()`를 더했다.
+  트리거 노드를 지우면 그 트리거가 사라진다 — `RemoveNode`가 트리거의 진입점만 비우던
+  것을 걷어냈다. 진입점을 잃은 유령 트리거가 목록에 남지 않는다
+- `MigrateLegacyTriggers` — 옛 형식의 트리거 목록을 트리거 노드로 옮긴다. 옛 진입 노드는
+  새 트리거 노드의 자식이 되고 실행 결과는 같다. 두 번 불러도 안전하다
 
 ### 추가
 
