@@ -3261,10 +3261,19 @@ namespace Juahn.UiMotion.Editor
 ```markdown
 3. ~~에디터 프리뷰의 대상과 유출 방지~~ — **정해짐(계획 3).** 프리뷰는 씬 인스턴스와
    프리팹 스테이지를 가리지 않고 **선택된 `MotionPlayer` 그 자체**를 대상으로 한다.
-   유출 방지는 새 장치를 만들지 않고 이미 있는 원상 복구 규약에 기댄다 —
-   `MotionPreviewDriver.Stop`이 `MotionPlayer.StopAll()`을 부르고, 취소가 등록된 복구를
-   역순으로 전부 돌린다. 도메인 리로드와 플레이 모드 전환 직전에도 같은 정리가 돈다.
    임시 오브젝트를 만들지 않으므로 씬에 남는 것이 없다.
+
+   유출 방지는 원상 복구 규약에 기댄다 — `MotionPreviewDriver.Stop`이 `MotionPlayer.StopAll()`을
+   부르고, 취소가 등록된 복구를 역순으로 전부 돌린다. **다만 그것만으로는 부족하다.**
+   복구는 `Stop`이 불렸을 때만 도는데, 프리뷰 중에 사람이 Ctrl+S를 누르면 아무도 `Stop`을
+   부르지 않은 채 중간 값이 디스크에 기록된다. 되돌릴 방법이 없고, 나중에 "이 팝업은 왜
+   반쯤 투명한 채 저장돼 있지"로 나타난다.
+
+   그래서 멈춤 훅을 다섯 곳에 건다 — `EditorSceneManager.sceneSaving`, `PrefabStage.prefabSaving`,
+   `AssemblyReloadEvents.beforeAssemblyReload`, `EditorApplication.playModeStateChanged`,
+   `EditorApplication.quitting`. 여기에 더해 `Window > UI Motion > Stop All Previews` 메뉴를
+   둔다. 프리뷰를 멈추는 버튼이 `MotionPlayer` 인스펙터에만 있으면, 선택을 옮기는 순간
+   무한 루프 연출을 멈출 방법이 사라지기 때문이다.
 ```
 
 또한 7.1절의 "팔레트에서 노드에 호버하면 그 예시 그래프가 그 자리에서 재생된다"를 실제 구현에 맞게 고친다 — 재생에는 대상 오브젝트와 슬롯 바인딩이 필요하므로 팔레트는 **예시 그래프를 여는 것**까지 한다.
