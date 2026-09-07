@@ -171,16 +171,6 @@ namespace Juahn.UiMotion.Tests
         }
 
         [Test]
-        public void FiniteLoop_IsWarning()
-        {
-            var nodes = new MotionNodeBase[] { new PlainNode(1) };
-            var triggers = new[] { new TriggerDeclaration("Loop", new NodeId(1)) };
-
-            Assert.That(Has(MotionGraphValidator.Validate(Build(nodes, null, triggers)),
-                MotionIssueLevel.Warning, "Loop"), Is.True);
-        }
-
-        [Test]
         public void LoopWithEndlessNode_IsFine()
         {
             var nodes = new MotionNodeBase[] { new EndlessNode(1) };
@@ -224,6 +214,63 @@ namespace Juahn.UiMotion.Tests
             MotionGraphValidator.Validate(Build(), into);
 
             Assert.That(into, Is.Empty);
+        }
+
+        private static MotionGraphIssue First(
+            IReadOnlyList<MotionGraphIssue> issues, MotionIssueLevel level, string fragment)
+        {
+            for (int i = 0; i < issues.Count; i++)
+            {
+                if (issues[i].Level == level && issues[i].Message.Contains(fragment))
+                {
+                    return issues[i];
+                }
+            }
+
+            return new MotionGraphIssue(MotionIssueLevel.Info, NodeId.None, "<none>");
+        }
+
+        [Test]
+        public void LinkCycle_BlamesANodeOnTheCycle()
+        {
+            // 도구가 틀린 곳을 가리키면 없는 것보다 나쁘다. 순환에 속하지 않은 노드에서
+            // 탐색을 시작했다고 해서 그 노드에 오류 배지가 붙으면 안 된다.
+            //
+            // 5 -> 1 -> 2 -> 1. 순환은 {1, 2}이고 5는 순환 밖이다.
+            var nodes = new MotionNodeBase[]
+            {
+                new PlainNode(5), new PlainNode(1), new PlainNode(2),
+            };
+            var links = new[]
+            {
+                new NodeLink(new NodeId(5), new NodeId(1)),
+                new NodeLink(new NodeId(1), new NodeId(2)),
+                new NodeLink(new NodeId(2), new NodeId(1)),
+            };
+            var triggers = new[] { new TriggerDeclaration("Start", new NodeId(5)) };
+
+            MotionGraphIssue issue = First(
+                MotionGraphValidator.Validate(Build(nodes, links, triggers)),
+                MotionIssueLevel.Error, "cycle");
+
+            Assert.That(issue.Node, Is.Not.EqualTo(new NodeId(5)),
+                "순환 밖의 노드를 범인으로 지목하면 안 된다");
+            Assert.That(issue.Node.Value, Is.AnyOf(1, 2));
+        }
+
+        [Test]
+        public void FiniteLoop_IsInfoNotWarning()
+        {
+            // 게임 코드가 매번 Fire("Loop")를 직접 부르는 그래프도 있다. 그 경우
+            // 유한 Loop가 정상이므로 경고로 올리면 거짓 양성이 된다. 거짓 경고가 쌓이면
+            // 사람이 경고 전체를 무시하게 된다.
+            var nodes = new MotionNodeBase[] { new PlainNode(1) };
+            var triggers = new[] { new TriggerDeclaration("Loop", new NodeId(1)) };
+
+            IReadOnlyList<MotionGraphIssue> issues = MotionGraphValidator.Validate(Build(nodes, null, triggers));
+
+            Assert.That(Has(issues, MotionIssueLevel.Info, "Loop"), Is.True);
+            Assert.That(Has(issues, MotionIssueLevel.Warning, "Loop"), Is.False);
         }
     }
 }

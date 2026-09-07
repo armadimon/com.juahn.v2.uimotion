@@ -115,9 +115,12 @@ namespace Juahn.UiMotion
 
                 if (decl.Name == MotionRuntime.LoopTrigger && !LoopRepeats(graph, decl.Entry))
                 {
-                    into.Add(new MotionGraphIssue(MotionIssueLevel.Warning, decl.Entry,
-                        "trigger 'Loop' runs once and stops; wrap it in Repeat or use a node that " +
-                        "keeps going such as Float or Bounce"));
+                    // Warning이 아니라 Info인 이유 — 게임 코드가 매번 Fire("Loop")를 직접
+                    // 부르는 그래프도 있고, 그때는 유한 Loop가 정상이다. 거짓 경고가 쌓이면
+                    // 사람이 경고 전체를 무시하게 되므로 확신할 수 없는 규칙은 올리지 않는다.
+                    into.Add(new MotionGraphIssue(MotionIssueLevel.Info, decl.Entry,
+                        "trigger 'Loop' runs once and stops. if the game does not re-fire it every " +
+                        "time, wrap it in Repeat or use a node that keeps going such as Float or Bounce"));
                 }
             }
         }
@@ -150,22 +153,35 @@ namespace Juahn.UiMotion
 
             for (int i = 0; i < ids.Count; i++)
             {
-                if (FindCycle(graph, ids[i], state))
+                NodeId culprit;
+                if (FindCycle(graph, ids[i], state, out culprit))
                 {
-                    into.Add(new MotionGraphIssue(MotionIssueLevel.Error, ids[i],
-                        "the links form a cycle; execution would expand without end"));
+                    into.Add(new MotionGraphIssue(MotionIssueLevel.Error, culprit,
+                        "the links form a cycle through " + culprit + "; execution would expand without end"));
                     return;
                 }
             }
         }
 
-        private static bool FindCycle(IMotionGraphView graph, NodeId id, Dictionary<int, int> state)
+        /// <summary>
+        /// 순환을 찾고 <b>순환에 실제로 속한</b> 노드를 <paramref name="culprit"/>에 담는다.
+        ///
+        /// 탐색을 시작한 노드를 범인으로 지목하면 안 된다. <c>5 -&gt; 1 -&gt; 2 -&gt; 1</c>에서
+        /// 5부터 훑기 시작했다는 이유로 5에 오류 배지가 붙으면, 사람은 5를 아무리 들여다봐도
+        /// 문제를 찾지 못한다. 도구가 틀린 곳을 가리키는 것은 도구가 없는 것보다 나쁘다.
+        /// </summary>
+        private static bool FindCycle(
+            IMotionGraphView graph, NodeId id, Dictionary<int, int> state, out NodeId culprit)
         {
+            culprit = NodeId.None;
+
             int mark;
             if (state.TryGetValue(id.Value, out mark))
             {
                 if (mark == 1)
                 {
+                    // 경로 위에서 다시 만났다. 이 노드가 순환의 일부다.
+                    culprit = id;
                     return true;
                 }
 
@@ -180,7 +196,7 @@ namespace Juahn.UiMotion
             IReadOnlyList<NodeId> children = graph.GetChildren(id);
             for (int i = 0; i < children.Count; i++)
             {
-                if (FindCycle(graph, children[i], state))
+                if (FindCycle(graph, children[i], state, out culprit))
                 {
                     return true;
                 }
