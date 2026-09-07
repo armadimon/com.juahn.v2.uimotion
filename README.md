@@ -46,6 +46,19 @@ Unity Package Manager → Add package from git URL:
 https://github.com/armadimon/com.juahn.v2.uimotion.git
 ```
 
+### 저작 툴 (`com.juahn.v2.uimotion.editor`)
+
+이 패키지만으로는 그래프를 **코드로만** 만들 수 있다. 노드를 눈으로 잇고, 팔레트에서 고르고,
+파라미터를 인스펙터에서 만지고, 만든 그래프를 오브젝트에 한 번에 적용하려면 툴 패키지를
+함께 설치한다.
+
+```
+https://github.com/armadimon/com.juahn.v2.uimotion.editor.git
+```
+
+에디터 전용이라 게임 빌드에는 들어가지 않는다. 그래프 편집 창 · 노드 팔레트 ·
+슬롯 자동 바인딩 · Node Doctor · 인에디터 프리뷰 · 프리셋 브라우저가 들어 있다.
+
 ## Unity 계층
 
 ### 그래프 하나, 플레이어 하나
