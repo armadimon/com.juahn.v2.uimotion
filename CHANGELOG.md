@@ -2,6 +2,17 @@
 
 ## [0.1.0] - 미출시
 
+### 더함 — IdlePaori에서 검증된 등장 연출
+
+- `AppearCurves` — 넘치는 세기를 지정할 수 있는 OutBack과 슬램 곡선. 코어에 두어
+  `dotnet test`로 검증한다. 낙하가 가속하는지까지 잠근다 — 등속으로 바꿔도 통과하는
+  테스트는 그 곡선을 지키지 않는 것이다
+- `MotionBaseScale` — 대상의 제자리 크기를 기억한다. 버튼은 누름과 뗌이 서로 다른
+  트리거라 지금 크기를 기준으로 재면 연타할수록 크기가 흘러내린다. 조용히 일어나고
+  원인을 찾을 단서가 없다
+- `PopScaleNode` · `SlamScaleNode` · `ButtonBounceNode`
+- 수치의 출처와 그중 무엇이 패키지에 들어오지 않았는지는 `docs/idlepaori-motion-values.md`
+
 ### 변경 — 트리거가 그래프 안의 노드가 된다
 
 - `TriggerNode`에 `Policy`를 실었다. 재발사 정책이 그래프의 트리거 목록과 노드 두 곳에
