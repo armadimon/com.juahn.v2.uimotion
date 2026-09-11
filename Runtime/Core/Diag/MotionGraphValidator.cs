@@ -46,6 +46,30 @@ namespace Juahn.UiMotion
             CheckLinkCycles(graph, ids, into);
             CheckReachability(graph, ids, into);
             CheckSubGraphCycles(graph, into);
+            GraphSlotCollector.Collect(graph, into);
+            if (!IsFinite(graph, MotionRuntime.EndTrigger))
+                into.Add(new MotionGraphIssue(MotionIssueLevel.Error, graph.GetEntry(MotionRuntime.EndTrigger),
+                    "trigger 'End' must finish; it contains a loop or cyclic path"));
+        }
+
+        public static bool IsFinite(IMotionGraphView graph, string trigger)
+        {
+            if (graph == null) return true;
+            return IsFinite(graph, graph.GetEntry(trigger), new HashSet<(IMotionGraphView, NodeId)>());
+        }
+        private static bool IsFinite(IMotionGraphView graph, NodeId id, HashSet<(IMotionGraphView, NodeId)> path)
+        {
+            if (!id.IsValid) return true;
+            var key = (graph, id);
+            if (!path.Add(key)) return false;
+            var node = graph.GetNode(id);
+            var finite = node == null || (!node.BlocksChildren && !(node is RepeatNode repeat && repeat.Count < 0));
+            if (finite && node is SubGraphNode sub && sub.PeekGraph() != null)
+                finite = IsFinite(sub.PeekGraph(), sub.PeekGraph().GetEntry(sub.EntryTrigger), path);
+            if (finite) foreach (var child in graph.GetChildren(id))
+                if (!IsFinite(graph, child, path)) { finite = false; break; }
+            path.Remove(key);
+            return finite;
         }
 
         public static bool HasErrors(IReadOnlyList<MotionGraphIssue> issues)

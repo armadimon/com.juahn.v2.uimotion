@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased] — IdleMine integration
+
+- Add per-request playback results and parameter snapshots, recursive graph slots/finite End validation, explicit pose restoration, value/rect/Animator/opacity sampling and decorative loop nodes.
+
 ## [0.1.0] - 미출시
 
 ### 더함 — uGUI 캔버스 비용 실측과 Fade 폴백 경고

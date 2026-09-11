@@ -42,7 +42,9 @@ namespace Juahn.UiMotion
         /// <summary><see cref="StartTrigger"/>가 자연 완료하면 <see cref="LoopTrigger"/>를 자동 발사할지.</summary>
         public bool AutoLoopAfterStart { get; set; } = true;
 
-        public void Fire(string trigger)
+        public void Fire(string trigger) => Play(trigger);
+
+        public MotionPlayback Play(string trigger, IReadOnlyDictionary<string, float> parameters = null)
         {
             TriggerRunner runner;
             if (!_runners.TryGetValue(trigger, out runner))
@@ -50,7 +52,7 @@ namespace Juahn.UiMotion
                 _log.WarnOnce("trigger:" + trigger,
                     "graph '" + _graph.GraphName + "' has no trigger '" + trigger + "'");
                 ReleaseWaiters(trigger);
-                return;
+                return MotionPlayback.Skipped();
             }
 
             // End는 유지 연출을 끊고 들어간다. 닫히는 중에 계속 떠다니면 안 된다.
@@ -59,7 +61,7 @@ namespace Juahn.UiMotion
                 Stop(LoopTrigger);
             }
 
-            runner.Fire();
+            return runner.Play(parameters);
         }
 
         public void Stop(string trigger)
@@ -166,7 +168,8 @@ namespace Juahn.UiMotion
                 string name = decl.Name;
                 NodeId entry = decl.Entry;
 
-                var runner = new TriggerRunner(name, decl.Policy, delegate { return CreateScope(name, entry); });
+                var runner = new TriggerRunner(name, (MotionPlayback request) => CreateScope(name, entry, request.Parameters), decl.Policy);
+                runner.Finished += result => { if (result.Outcome == MotionOutcome.Failed) ReleaseWaiters(name); };
                 runner.CompletedNaturally += delegate { OnRunnerCompleted(name); };
 
                 _runners[name] = runner;
@@ -174,9 +177,9 @@ namespace Juahn.UiMotion
             }
         }
 
-        private MotionScope CreateScope(string triggerName, NodeId entry)
+        private MotionScope CreateScope(string triggerName, NodeId entry, IReadOnlyDictionary<string, float> parameters)
         {
-            var scope = new MotionScope(triggerName, _log);
+            var scope = new MotionScope(triggerName, _log, parameters);
             scope.Begin(new MotionContext(_graph, scope, _resolver, _log, this, 0, _host), entry);
             return scope;
         }

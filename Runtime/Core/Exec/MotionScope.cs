@@ -19,14 +19,19 @@ namespace Juahn.UiMotion
         private bool _cancelled;
         private NodeRun _root;
 
-        public MotionScope(string triggerName, IMotionLog log = null)
+        public MotionScope(string triggerName, IMotionLog log = null, IReadOnlyDictionary<string, float> parameters = null)
         {
             TriggerName = triggerName;
             _log = log;
+            Parameters = parameters ?? MotionPlayback.EmptyParameters;
         }
 
         /// <summary>이 스코프를 만든 트리거의 이름. 진단용.</summary>
         public string TriggerName { get; }
+        public IReadOnlyDictionary<string, float> Parameters { get; }
+        public Exception Error { get; private set; }
+        public float Parameter(string name, float fallback = 0f)
+            => name != null && Parameters.TryGetValue(name, out var value) ? value : fallback;
 
         /// <summary>끝났는가. 자연 완료와 취소를 모두 포함한다.</summary>
         public bool IsDone => _done;
@@ -99,7 +104,14 @@ namespace Juahn.UiMotion
                 return;
             }
 
-            _root.Tick(deltaSeconds);
+            try { _root.Tick(deltaSeconds); }
+            catch (Exception error)
+            {
+                Error = error;
+                _log?.Error("motion failed in scope '" + TriggerName + "': " + error.Message);
+                Cancel();
+                return;
+            }
 
             if (_root.IsDone)
             {
@@ -120,7 +132,8 @@ namespace Juahn.UiMotion
 
             if (_root != null)
             {
-                _root.Cancel();
+                try { _root.Cancel(); }
+                catch (Exception error) { _log?.Error("motion cancellation failed: " + error.Message); }
             }
 
             for (int i = _reverts.Count - 1; i >= 0; i--)

@@ -7,12 +7,20 @@ JuahnFrameworkV2 스택의 UI 연출 패키지. 노드 그래프로 UI 움직임
 UiService 브릿지, DOTween 백엔드. 남은 것은 Unity 에디터에서 손으로 하는 동작 확인이고
 각 저장소의 `docs/unity-verification.md`가 그 목록이다.
 
+## 실행별 재생과 UI 계약 (2026-09)
+
+`MotionPlayer.Play(trigger, parameters)`은 요청별 `MotionPlayback`을 반환한다. `RunId`와 Completed/Canceled/Skipped/Failed 결과를 가지며 파라미터는 발사 때 복사한다. 기존 Fire/WaitFor 호환 API와 달리 이전 실행의 완료를 다음 요청의 완료로 해석하지 않는다. 서브그래프에도 같은 실행 파라미터가 전달된다.
+
+`CaptureBasePose()`는 레이아웃 확정 후 호출한다. `StopAll()`은 정지, `ResetToBasePose()`는 정지 후 Transform/RectTransform/CanvasGroup/Graphic 기준값 복구다. 재생 직후 첫 자세는 즉시 적용된다. 슬롯 수집과 End 유한성 검사는 중첩 서브그래프·순환·타입 충돌을 검사한다.
+
+`ValueNode`/`MotionValue`는 표시값 보간, `RectPoseNode`는 앵커를 유지하는 UI 위치 전환, `SampleAnimatorNode`와 `SampleOpacityNode`는 게임이 준 진행값 샘플링, `SwayNode`/`OscillatePositionNode`는 장식 자식 루프에 사용한다. 게임 궤적과 단계 완료는 연출 노드가 소유하지 않는다. UiService 연결은 별도 V2 브리지 패키지에 둔다.
+
 ## 어셈블리 두 개
 
 | 어셈블리 | 의존 | 내용 |
 |---|---|---|
 | `juahn.v2.UiMotion.Core` | 없음 (`noEngineReferences`) | 그래프 실행 엔진 · 스코프 · 흐름 노드 · 이징 · 순환 검출 |
-| `juahn.v2.UiMotion` | Core | `MotionGraph` 에셋 · `MotionPlayer` · 틱 펌프 · 트윈 러너 · 효과 노드 13종 |
+| `juahn.v2.UiMotion` | Core | `MotionGraph` 에셋 · `MotionPlayer` · 틱 펌프 · 트윈 러너 · 효과 노드 |
 
 코어가 UnityEngine을 참조하지 않는 덕에 `dotnet test`로 Unity 없이 검증된다.
 그 결과 취소 · 원상 복구 · 스코프 생명주기처럼 버그가 가장 많이 나는 부분이

@@ -121,7 +121,7 @@ namespace Juahn.UiMotion
         /// 이 그래프가 요구하는 슬롯들. <b>저작값이 아니라 파생값이다</b> — 노드들의
         /// <c>[MotionSlot]</c> 필드에서 매번 계산한다. 노드를 지우면 슬롯도 사라진다.
         /// </summary>
-        public IReadOnlyList<SlotDeclaration> Slots => Index.Slots;
+        public IReadOnlyList<SlotDeclaration> Slots => GraphSlotCollector.Collect(this);
 
         public IReadOnlyList<NodeId> NodeIds => Index.NodeIds;
 

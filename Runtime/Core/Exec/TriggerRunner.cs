@@ -10,13 +10,16 @@ namespace Juahn.UiMotion
     /// </summary>
     public sealed class TriggerRunner
     {
-        private readonly Func<MotionScope> _scopeFactory;
+        private readonly Func<MotionPlayback, MotionScope> _scopeFactory;
         private readonly TriggerPolicy _policy;
 
         private MotionScope _current;
-        private bool _queued;
+        private MotionPlayback _queued;
 
         public TriggerRunner(string name, TriggerPolicy policy, Func<MotionScope> scopeFactory)
+            : this(name, _ => scopeFactory(), policy) { }
+
+        internal TriggerRunner(string name, Func<MotionPlayback, MotionScope> scopeFactory, TriggerPolicy policy)
         {
             Name = name;
             _policy = policy;
@@ -30,23 +33,29 @@ namespace Juahn.UiMotion
         /// <summary>자연 완료했을 때만 발생한다. 취소로 끝난 경우에는 발생하지 않는다.</summary>
         public event Action CompletedNaturally;
 
-        public void Fire()
+        public event Action<MotionResult> Finished;
+        public void Fire() => Play();
+
+        public MotionPlayback Play(System.Collections.Generic.IReadOnlyDictionary<string, float> parameters = null)
         {
+            var request = new MotionPlayback(parameters);
             if (!IsPlaying)
             {
-                StartNew();
-                return;
+                StartNew(request);
+                return request;
             }
 
             switch (_policy)
             {
                 case TriggerPolicy.Ignore:
-                    return;
+                    request.Complete(MotionOutcome.Skipped);
+                    return request;
 
                 case TriggerPolicy.Queue:
                     // 대기는 하나만 유지한다. 무한히 쌓이면 연타 한 번에 연출이 수십 번 돈다.
-                    _queued = true;
-                    return;
+                    _queued?.Complete(MotionOutcome.Canceled);
+                    _queued = request;
+                    return request;
 
                 default:
                 {
@@ -58,19 +67,21 @@ namespace Juahn.UiMotion
                     {
                         // 취소가 돌린 복구가 이미 이 트리거를 다시 발사했다.
                         // 그것이 곧 재시작이므로 여기서 또 시작하면 두 번 돈다.
-                        return;
+                        request.Complete(MotionOutcome.Skipped);
+                        return request;
                     }
 
                     _current = null;
-                    StartNew();
-                    return;
+                    StartNew(request);
+                    return request;
                 }
             }
         }
 
         public void Stop()
         {
-            _queued = false;
+            var queued = _queued; _queued = null;
+            queued?.Complete(MotionOutcome.Canceled);
 
             // Tick과 같은 이유로 필드가 아니라 지역 변수로 잡는다.
             //
@@ -124,21 +135,32 @@ namespace Juahn.UiMotion
             bool wasCancelled = current.IsCancelled;
             _current = null;
 
-            if (!wasCancelled)
+            if (!wasCancelled && current.Error == null)
             {
                 RaiseCompleted();
             }
 
-            if (_queued)
+            if (_queued != null && !IsPlaying)
             {
-                _queued = false;
-                StartNew();
+                var queued = _queued; _queued = null;
+                StartNew(queued);
             }
         }
 
-        private void StartNew()
+        private void StartNew(MotionPlayback request)
         {
-            _current = _scopeFactory();
+            MotionScope current;
+            try { current = _scopeFactory(request); }
+            catch (Exception error) { request.Complete(MotionOutcome.Failed, error); Finished?.Invoke(request.Result); return; }
+            _current = current;
+            if (current == null) { request.Complete(MotionOutcome.Skipped); Finished?.Invoke(request.Result); return; }
+            Action complete = () =>
+            {
+                request.Complete(current.Error != null ? MotionOutcome.Failed :
+                    current.IsCancelled ? MotionOutcome.Canceled : MotionOutcome.Completed, current.Error);
+                Finished?.Invoke(request.Result);
+            };
+            if (current.IsDone) complete(); else current.Completed += complete;
 
             // 팩토리가 진입 노드 없이 만든 스코프는 이미 끝나 있다.
             // 붙들고 있으면 IsPlaying이 영원히 false인 채로 남아 다음 Tick이 무의미해진다.
@@ -147,7 +169,7 @@ namespace Juahn.UiMotion
                 bool wasCancelled = _current.IsCancelled;
                 _current = null;
 
-                if (!wasCancelled)
+                if (!wasCancelled && current.Error == null)
                 {
                     RaiseCompleted();
                 }

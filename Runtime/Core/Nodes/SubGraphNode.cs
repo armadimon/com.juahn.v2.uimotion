@@ -53,7 +53,7 @@ namespace Juahn.UiMotion
                 return MotionHandle.Skipped;
             }
 
-            var innerScope = new MotionScope(EntryTrigger, ctx.Log);
+            var innerScope = new MotionScope(EntryTrigger, ctx.Log, (ctx.Scope as MotionScope)?.Parameters);
 
             // 바깥 스코프가 취소되면 안쪽도 취소돼야 한다. 안 그러면 안쪽 복구가 영영 실행되지 않는다.
             ctx.Scope.Remember(innerScope.Cancel);
@@ -104,6 +104,7 @@ namespace Juahn.UiMotion
             public void Tick(float deltaSeconds)
             {
                 _inner.Tick(deltaSeconds);
+                if (_inner.Error != null) throw _inner.Error;
             }
 
             public void Cancel()

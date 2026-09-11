@@ -13,7 +13,7 @@ namespace Juahn.UiMotion
     /// </summary>
     [AddComponentMenu("Juahn/UI Motion/Motion Player")]
     [DisallowMultipleComponent]
-    public sealed class MotionPlayer : MonoBehaviour
+    public sealed partial class MotionPlayer : MonoBehaviour
     {
         [SerializeField] private MotionGraph _graph;
 
@@ -132,6 +132,18 @@ namespace Juahn.UiMotion
             }
 
             runtime.Fire(trigger);
+        }
+
+        /// <summary>발사 시점의 파라미터를 복사하고 해당 실행만의 완료 결과를 반환한다.</summary>
+        public MotionPlayback Play(string trigger, IReadOnlyDictionary<string, float> parameters = null)
+        {
+            if (!isActiveAndEnabled) return MotionPlayback.Skipped();
+            var runtime = EnsureRuntime();
+            if (runtime == null) return MotionPlayback.Skipped();
+            var playback = runtime.Play(trigger, parameters);
+            // Apply the authored first pose before the next render, without consuming frame time.
+            runtime.Tick(0f);
+            return playback;
         }
 
         public void Stop(string trigger)
@@ -359,11 +371,6 @@ namespace Juahn.UiMotion
 
             // 제자리 크기 기억을 버린다. 풀에서 꺼내 다시 쓰는 오브젝트가 지난번 연출
             // 도중의 크기를 제자리 크기로 굽지 않게 하기 위해서다.
-            if (_baseScales != null)
-            {
-                _baseScales.Clear();
-            }
-
             EnsureRuntime();
 
             if (_runtime != null)
@@ -378,13 +385,13 @@ namespace Juahn.UiMotion
         private void OnDisable()
         {
             // 취소가 원상 복구를 돌린다. 트윈 누수는 0이어야 한다.
-            StopAll();
+            ResetToBasePose();
             MotionPump.Unregister(this);
         }
 
         private void OnDestroy()
         {
-            StopAll();
+            ResetToBasePose();
             MotionPump.Unregister(this);
         }
 
