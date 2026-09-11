@@ -76,21 +76,20 @@ graph.Link(start, firstNodeId);                                // 아래로 잇�
 |---|---|---|
 | `com.juahn.v2.uimotion` | **언제나.** 나머지 셋이 전부 이것에 의존한다 | `com.unity.ugui` (UPM 의존성) |
 | `com.juahn.v2.uimotion.editor` | 그래프를 코드가 아니라 GUI로 만들려면 | 이 패키지 (UPM 의존성) |
-| `com.juahn.v2.uimotion.uiservice` | UiService의 팝업 생명주기에 연출을 붙이려면 | 이 패키지 + `com.juahn.uiservice` + UniTask |
+| `com.juahn.v2.uimotion.uiservice` | UiService의 화면·위젯 수명과 입력·값에 연출을 붙이려면 | 이 패키지 + `com.juahn.v2.uiservice` + UniTask |
 | `com.juahn.v2.uimotion.dotween` | 프로파일러가 발사 할당을 실제로 잡을 때만 | 이 패키지 + DOTween + `UIMOTION_DOTWEEN` 심볼 |
 
-`com.juahn.uiservice`와 DOTween은 어느 `package.json`에도 의존성으로 적혀 있지 않다.
-UiService는 소비자가 따로 설치하는 외부 패키지라 여기에 적으면 버전이 어긋났을 때 UPM이
-해석에 실패하고, DOTween은 에셋스토어 플러그인이라 UPM이 해석할 이름 자체가 없다.
-둘 다 asmdef가 어셈블리 · DLL 이름으로 참조한다. **먼저 프로젝트에 넣어 두는 것은
-소비자의 몫이다.**
+브리지는 `com.juahn.v2.uiservice`에 명시적으로 의존한다. Git 패키지의 전이 의존성을
+해석할 레지스트리가 없으면 소비자 프로젝트의 manifest에도 UiService V2의 Git URL을
+등록해야 한다. UniTask는 소비자 프로젝트에 UPM 패키지로 설치한다.
+DOTween은 에셋스토어 플러그인이므로 UPM 의존성에 적지 않고 asmdef에서 DLL을 참조한다.
 
 ## 설치
 
-> **아직 원격 저장소에 올라가지 않았다.** 아래 URL은 `com.juahn.v2.vcontainer` 등
-> 다른 v2 패키지의 명명 규약을 따른 것이고, 네 저장소 모두 현재는 로컬에만 있다.
-> 그때까지는 `Packages/` 아래에 임베드하거나 `file:` 경로로 참조한다 —
-> 예시 그래프를 생성하려면 어차피 임베드가 필요하다(`Library/PackageCache`는 읽기 전용이다).
+> 각 패키지는 아래 비공개 GitHub 저장소의 `main`에서 관리한다. Git URL로 설치할 때는
+> 저장소 접근 권한이 있는 계정의 Git 인증이 필요하다. 함께 개발할 때는 `file:` 경로로
+> 참조할 수 있다. 패키지 내부에 예시 그래프를 생성하려면 임베드하거나 로컬 패키지를
+> 사용한다(`Library/PackageCache`는 읽기 전용이다).
 
 Unity Package Manager → Add package from git URL:
 
