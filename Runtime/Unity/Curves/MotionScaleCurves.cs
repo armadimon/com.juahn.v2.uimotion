@@ -19,7 +19,7 @@ namespace Juahn.UiMotion
     /// 없다. 툭 눌리는 것과 물렁하게 눌리는 것, 한 번 부풀었다 가라앉는 것은 목표값이
     /// 같아도 완전히 다른 연출이다.
     ///
-    /// 수치는 IdlePaori에서 옮겨 왔다. 자세한 출처는 <c>docs/idlepaori-motion-values.md</c>.
+    /// 수치는 원본 프로젝트에서 옮겨 왔다. 자세한 출처는 <c>docs/motion-source-values.md</c>.
     /// </summary>
     public static class MotionScaleCurves
     {
@@ -36,7 +36,7 @@ namespace Juahn.UiMotion
         /// <summary>
         /// 버튼의 뽀잉 — 눌렸다가 넘쳐 튀고 안착한다. 0.27초로 쓴다.
         ///
-        /// IdlePaori <c>UIScaleModule</c>의 기본 곡선이다. <c>UIButtonBounceModule</c>이 쓰던
+        /// 원본 프로젝트 <c>UIScaleModule</c>의 기본 곡선이다. <c>UIButtonBounceModule</c>이 쓰던
         /// 값(0.95로 눌림 0.085초 → 1.15로 튐 0.1초 → 1로 안착 0.085초)을 진행도로 정규화했다.
         /// 눌리는 예비 동작이 앞에 붙어 있어 그냥 커지기만 하는 것보다 탄력 있게 읽힌다.
         /// </summary>
@@ -94,7 +94,7 @@ namespace Juahn.UiMotion
         /// <summary>
         /// 등장 팝 — 아무것도 없는 데서 넘쳤다 제자리로. 0.18초로 쓴다.
         ///
-        /// IdlePaori 뽑기 결과의 <b>평범한 칸</b>이다. 넘치는 세기 1.7은
+        /// 원본 프로젝트 뽑기 결과의 <b>평범한 칸</b>이다. 넘치는 세기 1.7은
         /// <see cref="EaseKind.OutBack"/>의 내장 상수와 사실상 같다.
         /// </summary>
         public static AnimationCurve PopIn()
@@ -114,7 +114,7 @@ namespace Juahn.UiMotion
 
         /// <summary>
         /// 슬램 — 1.5배에서 줄어들며 박히고 한 번 눌렸다 돌아온다. 0.28초로 쓴다.
-        /// IdlePaori 뽑기 결과의 2등(티어 2).
+        /// 원본 프로젝트 뽑기 결과의 2등(티어 2).
         /// </summary>
         public static AnimationCurve SlamTier2()
         {
@@ -123,7 +123,7 @@ namespace Juahn.UiMotion
 
         /// <summary>
         /// 슬램 — 2.2배에서 떨어진다. 0.28초로 쓴다.
-        /// IdlePaori 뽑기 결과의 1등(티어 3), 가장 드문 등급.
+        /// 원본 프로젝트 뽑기 결과의 1등(티어 3), 가장 드문 등급.
         /// </summary>
         public static AnimationCurve SlamTier3()
         {
@@ -131,7 +131,7 @@ namespace Juahn.UiMotion
         }
 
         /// <summary>
-        /// 시작 배율을 지정하는 슬램. 낙하 구간 72퍼센트, 눌림 0.12는 IdlePaori 값이다.
+        /// 시작 배율을 지정하는 슬램. 낙하 구간 72퍼센트, 눌림 0.12는 원본 프로젝트 값이다.
         /// </summary>
         public static AnimationCurve Slam(float startScale)
         {

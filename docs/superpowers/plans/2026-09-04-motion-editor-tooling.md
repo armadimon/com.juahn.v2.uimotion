@@ -17,7 +17,7 @@
 | 1 ~ 3 | `com.juahn.v2.uimotion` (기존, 런타임) |
 | 4 ~ 15 | `com.juahn.v2.uimotion.editor` (**새로 만든다**) |
 
-두 저장소 모두 `/Users/teamsparta/UnityProject/JuahnFrameworkV2/` 아래에 있다. v2 관례대로 패키지마다 독립 git 저장소다.
+두 저장소 모두 `$WORKSPACE/JuahnFrameworkV2/` 아래에 있다. v2 관례대로 패키지마다 독립 git 저장소다.
 
 ---
 
@@ -1163,7 +1163,7 @@ git commit -m "feat: 그래프 창을 위한 노드 위치 저장 추가"
 
 ## 저장소 2 — `com.juahn.v2.uimotion.editor` (Task 4~15)
 
-**이 저장소는 아직 없다. Task 4가 만든다.** 위치: `/Users/teamsparta/UnityProject/JuahnFrameworkV2/com.juahn.v2.uimotion.editor`
+**이 저장소는 아직 없다. Task 4가 만든다.** 위치: `$WORKSPACE/JuahnFrameworkV2/com.juahn.v2.uimotion.editor`
 
 ### Task 4: 에디터 패키지 뼈대와 컴파일 게이트
 
@@ -1180,7 +1180,7 @@ git commit -m "feat: 그래프 창을 위한 노드 위치 저장 추가"
 - [ ] **Step 1: 저장소를 만든다**
 
 ```bash
-cd /Users/teamsparta/UnityProject/JuahnFrameworkV2
+cd $WORKSPACE/JuahnFrameworkV2
 mkdir com.juahn.v2.uimotion.editor
 cd com.juahn.v2.uimotion.editor
 git init

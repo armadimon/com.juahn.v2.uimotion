@@ -19,7 +19,7 @@
 
 ### 변경 — Scale 노드가 곡선을 받는다
 
-IdlePaori의 `UIScaleModule`을 그대로 옮겼다. `To`/`Relative`/`Ease` 대신 `Curve`/`Duration`을
+원본 프로젝트의 `UIScaleModule`을 그대로 옮겼다. `To`/`Relative`/`Ease` 대신 `Curve`/`Duration`을
 받는다. 세로축이 제자리 크기 대비 배율이고 가로축이 진행도다.
 
 - 곡선 하나가 바운스 · 누름 · 펄스 · 등장 팝 · 슬램을 전부 낸다. **노드를 쪼개지 않는다** —
@@ -39,7 +39,7 @@ IdlePaori의 `UIScaleModule`을 그대로 옮겼다. `To`/`Relative`/`Ease` 대�
   300개짜리 화면을 열면 O(n²)이 된다
 - `AppearCurves` — 세기를 지정하는 OutBack과 슬램. 코어에 두어 `dotnet test`로 검증한다.
   낙하가 가속하는지까지 잠근다 — 등속으로 바꿔도 통과하는 테스트는 그 곡선을 지키지 않는 것이다
-- 수치의 출처와 경계는 `docs/idlepaori-motion-values.md`
+- 수치의 출처와 경계는 `docs/motion-source-values.md`
 
 ### 변경 — 트리거가 그래프 안의 노드가 된다
 

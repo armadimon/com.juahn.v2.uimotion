@@ -17,7 +17,7 @@ namespace Juahn.UiMotion
     /// <b>할당이 없다.</b> <c>curve.keys</c>는 배열을 통째로 복사하므로 쓰지 않는다.
     /// 인덱서와 <c>length</c>만 쓴다 — 여기는 반복 연출에서 매 프레임 불리는 경로다.
     ///
-    /// IdlePaori의 <c>UIAnimCurve</c>에서 옮겨 왔다.
+    /// 원본 프로젝트의 <c>UIAnimCurve</c>에서 옮겨 왔다.
     /// </summary>
     public static class MotionCurve
     {

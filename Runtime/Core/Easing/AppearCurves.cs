@@ -3,7 +3,7 @@ using System;
 namespace Juahn.UiMotion
 {
     /// <summary>
-    /// 등장 연출의 크기 곡선. IdlePaori의 결과 등장(<c>SlotRevealGrid</c>)에서 그대로 옮겨 왔다.
+    /// 등장 연출의 크기 곡선. 원본 프로젝트의 결과 등장(<c>SlotRevealGrid</c>)에서 그대로 옮겨 왔다.
     ///
     /// <b>왜 <see cref="EaseLibrary"/>에 넣지 않는가</b> — 이징은 0에서 1로 가는 진행도 함수이고
     /// 매개변수를 받지 않는다. 여기 있는 둘은 매개변수를 받고 <b>배율 자체</b>를 돌려준다.
@@ -22,7 +22,7 @@ namespace Juahn.UiMotion
         ///
         /// <see cref="EaseLibrary"/>의 <see cref="EaseKind.OutBack"/>과 식이 같고 상수만 열었다.
         /// 등장 팝은 세기가 연출의 전부라 고정 상수로는 "강조 칸"을 만들 수 없다 —
-        /// IdlePaori는 일반 칸에 1.7, 강조 칸에 3.2를 쓴다.
+        /// 원본 프로젝트는 일반 칸에 1.7, 강조 칸에 3.2를 쓴다.
         /// </summary>
         /// <param name="t">진행도. [0,1]로 클램프된다.</param>
         /// <param name="overshoot">넘치는 정도. 0이면 넘치지 않는다.</param>

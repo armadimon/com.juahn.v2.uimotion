@@ -3618,7 +3618,7 @@ git commit -m "feat: Punch Scale과 Shake 효과 노드 추가"
 
 ### Task 14: 무한 핸들과 유지 연출 — Float · Bounce
 
-부유와 통통 튀기는 **끝나지 않는** 연출이다. `Loop` 트리거에 물려 두고 `End`가 발사되면 취소되면서 제자리로 돌아온다. IdlePaori의 `UIFloatingModule`이 `_origin` 캡처와 `OnStop` 복원으로 손수 하던 일을 프레임워크가 보장하는 자리다.
+부유와 통통 튀기는 **끝나지 않는** 연출이다. `Loop` 트리거에 물려 두고 `End`가 발사되면 취소되면서 제자리로 돌아온다. 원본 프로젝트의 `UIFloatingModule`이 `_origin` 캡처와 `OnStop` 복원으로 손수 하던 일을 프레임워크가 보장하는 자리다.
 
 끝나지 않는 핸들이 코어에 없으므로 먼저 만든다. 순수 코드이므로 `dotnet test`로 검증한다.
 

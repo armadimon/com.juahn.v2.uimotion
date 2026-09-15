@@ -33,7 +33,7 @@ namespace Juahn.UiMotion
     /// 함께 줄어들어, 테두리를 눌렀다 떼면 포인터가 영역 밖이라 클릭이 무효화된다.
     /// 시각 전용 자식을 지정한다.
     ///
-    /// IdlePaori의 <c>UIScaleModule</c>에서 옮겨 왔다.
+    /// 원본 프로젝트의 <c>UIScaleModule</c>에서 옮겨 왔다.
     /// </summary>
     [MotionNode(
         Name = "Scale",

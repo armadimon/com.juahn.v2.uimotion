@@ -18,7 +18,7 @@
 | 4 ~ 7 | `com.juahn.v2.uimotion.dotween` | `DoTweenRunner : IMotionTweenRunner` |
 | 8 | 두 저장소 + 런타임 | 문서와 스펙 정리 |
 
-둘 다 `/Users/teamsparta/UnityProject/JuahnFrameworkV2/` 아래에 만든다.
+둘 다 `$WORKSPACE/JuahnFrameworkV2/` 아래에 만든다.
 
 ## 실측으로 확인한 것 (전부 검증됨)
 
@@ -119,7 +119,7 @@ CI에서 컴파일할 수 없는 이유가 하나 더 있다 — DOTween은 유�
 - [ ] **Step 1: 저장소를 만든다**
 
 ```bash
-cd /Users/teamsparta/UnityProject/JuahnFrameworkV2
+cd $WORKSPACE/JuahnFrameworkV2
 mkdir com.juahn.v2.uimotion.uiservice && cd com.juahn.v2.uimotion.uiservice
 git init && git checkout -b main
 ```
